@@ -70,8 +70,9 @@ def _runner(store, adapter):
     return runner
 
 
-def _thread_source(channel=CHANNEL, thread=THREAD, user="U1"):
-    return SessionSource(platform=Platform.SLACK, chat_id=channel, chat_type="group",
+def _thread_source(channel=CHANNEL, thread: str | None = THREAD, user="U1"):
+    return SessionSource(platform=Platform.SLACK, chat_id=channel,
+                         chat_type="dm" if str(channel).startswith("D") else "group",
                          thread_id=thread, user_id=user, user_name="victor", scope_id=WORKSPACE)
 
 
@@ -183,8 +184,9 @@ def test_cutoff_trims_in_flight_tool_tail_to_whole_turns():
 @pytest.mark.asyncio
 async def test_branch_link_cuts_at_linked_message_and_keeps_every_original(store):
     target = _seed_three_turns(store, _thread_source())
-    # Invoke from a DIFFERENT thread of the SAME channel: the feature's entry point.
-    invoking = _thread_source(thread="1793000888.000888")
+    # Invoke from the linked thread itself: the link only picks the branch point of THIS
+    # conversation (the same-thread rule), the clone opens as a new sibling thread.
+    invoking = _thread_source()
     adapter = _SlackAdapter()
     runner = _runner(store, adapter)
 
@@ -214,16 +216,29 @@ async def test_branch_link_uses_lineage_title_when_none_given(store):
     _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
     await runner._handle_branch_command(
-        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread="1793000888.000888")))
+        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source()))
     assert runner._session_db is not None  # sanity: the flow completed without raising
 
 
 @pytest.mark.asyncio
-async def test_branch_link_unknown_thread_and_unparsable_link(store):
+async def test_branch_link_wrong_thread_and_unparsable_link(store):
+    _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
+    # The link is a cutoff selector for the invoking conversation: another thread of the
+    # SAME channel may not be named, and neither may another channel.
     reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch --at {_link(thread='1793000777.000777')}", source=_thread_source()))
-    assert reply == t("gateway.branch.link_no_session")
+        MessageEvent(text=f"/branch --at {_link()}",
+                     source=_thread_source(thread="1793000888.000888")))
+    assert reply == t("gateway.branch.link_wrong_thread")
+    reply = await runner._handle_branch_command(
+        MessageEvent(text=f"/branch --at {_link()}",
+                     source=_thread_source(channel="C0OTHER", thread="1793000888.000888")))
+    assert reply == t("gateway.branch.link_wrong_thread")
+    # Invoking from the channel root (no thread) cannot match a thread link either.
+    reply = await runner._handle_branch_command(
+        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread=None)))
+    assert reply == t("gateway.branch.link_wrong_thread")
+    # A channel-root permalink still cannot name a cutoff at all.
     channel_root = "https://catio-tech.slack.com/archives/C0LINKED/p1793000023000000"
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {channel_root}", source=_thread_source()))
@@ -231,26 +246,20 @@ async def test_branch_link_unknown_thread_and_unparsable_link(store):
 
 
 @pytest.mark.asyncio
-async def test_branch_link_authority_gates(store):
-    _seed_three_turns(store, _thread_source())
+async def test_branch_link_dm_follows_the_same_thread_rule(store):
     runner = _runner(store, _SlackAdapter())
-    # A different channel may not name the target.
-    other_channel = _thread_source(channel="C0OTHER", thread="1793000888.000888")
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch --at {_link()}", source=other_channel))
-    assert reply == t("gateway.branch.link_not_allowed")
-    # A DM session keeps the strict /resume rule: same DM, different thread is still blocked.
     dm_thread = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
                               thread_id="1793000555.000555", user_id="U1", scope_id=WORKSPACE)
     dm_entry = store.get_or_create_session(dm_thread)
     store._db.append_message(dm_entry.session_id, role="user", content="dm secret",
                              timestamp=1793000011.0, platform_message_id="1793000011.000000")
     dm_link = _link("1793000011.000000", channel="D0DM", thread="1793000555.000555")
+    # A different thread of the same DM may not name it (uniform rule, no DM carve-out).
     from_dm_sibling = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
-                                    thread_id="1793000666.000666", user_id="U1", scope_id=WORKSPACE)
+                                     thread_id="1793000666.000666", user_id="U1", scope_id=WORKSPACE)
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {dm_link}", source=from_dm_sibling))
-    assert reply == t("gateway.branch.link_not_allowed")
+    assert reply == t("gateway.branch.link_wrong_thread")
     # The DM's own thread may.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {dm_link} dm branch", source=dm_thread))
@@ -282,7 +291,7 @@ async def test_branch_link_thread_creation_failure_changes_nothing(store):
     target = _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter(fail=True))
     reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread="1793000888.000888")))
+        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source()))
     assert reply == t("gateway.branch.link_thread_failed")
     assert store.get_or_create_session(_thread_source()).session_id == target.session_id
     # No clone row was created.
@@ -335,10 +344,10 @@ async def test_branch_bare_link_without_at_is_pointed_at_the_flag(store):
 @pytest.mark.asyncio
 async def test_branch_at_flag_flows_and_fails_loudly(store):
     target = _seed_three_turns(store, _thread_source())
-    invoking = _thread_source(thread="1793000888.000888")
+    invoking = _thread_source()
     adapter = _SlackAdapter()
     runner = _runner(store, adapter)
-    # The explicit form behaves exactly like the pasted-link sugar.
+    # The flag form carries the branch point explicitly; same-thread rule satisfied.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {_link()} explicit path", source=invoking))
     assert adapter.calls == [(CHANNEL, "explicit path")]

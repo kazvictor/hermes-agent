@@ -21,9 +21,7 @@ from gateway.platforms.base import EphemeralReply
 from gateway.platforms.event import MessageEvent, MessageType
 from gateway.session import SessionSource, build_session_key, is_shared_multi_user_session
 from gateway.session_transcript import TranscriptReadError
-from gateway.slash_commands_branch_link import (
-    LinkCutoffUnresolved, build_slack_thread_source, find_link_cutoff,
-)
+from gateway.slash_commands_branch_link import LinkCutoffUnresolved, find_link_cutoff
 from gateway.slash_commands_branch_thread import (
     BRANCH_THREAD_PLATFORMS, SlackLinkTarget, branch_dest_source, branch_thread_parent,
     format_thread_ref, parse_branch_link_args,
@@ -424,41 +422,6 @@ class GatewaySessionCommandsMixin:
         if source.platform == Platform.MATRIX:
             return self._same_matrix_room(source, self._gateway_session_origin_for_id(sid))
         return await self._resume_target_allowed(source, sid, allow_override=False)
-
-    async def _link_branch_target_allowed(self, source: SessionSource, target_id: str) -> bool:
-        """Authority check for ``/branch <message link>``: the invoking chat may name a session
-        whose channel it belongs to.
-
-        The /resume IDOR guard keys on the exact thread — resuming hands the INVOKING chat a
-        session it then continues elsewhere. A link branch is narrower: the clone is bound to a
-        NEW thread in the target's own channel, so the copied transcript never leaves the
-        channel the linked thread already lives in — and any member of that channel can already
-        read the thread in the platform UI. A different thread of that same channel may
-        therefore name the target (that is the feature's entry point: a fresh thread posting
-        the link). DM sessions keep the strict /resume rule (thread-for-thread); everything
-        else fails closed."""
-        if source.platform != Platform.SLACK:
-            return False
-        try:
-            origin = self._gateway_session_origin_for_id(target_id)
-        except Exception:
-            logger.debug("Link branch: origin lookup failed for %s", target_id, exc_info=True)
-            origin = None
-        if not isinstance(origin, SessionSource):
-            # Unresolvable origin (ended session, test double): prove ownership from the row or
-            # fail closed, exactly like the /resume fallback.
-            try:
-                row = await self._session_db.get_session(target_id) or {}
-            except Exception:
-                logger.debug("Link branch: session row read failed for %s", target_id, exc_info=True)
-                return False
-            return self._persisted_row_proves_owner(source, row)
-        if origin.platform != source.platform:
-            return False
-        if _sattr(origin, "chat_type").lower() in _DM_CHAT_TYPES:
-            return self._same_origin_chat(source, origin)
-        origin_chat, invoking_chat = _sattr(origin, "chat_id"), _sattr(source, "chat_id")
-        return bool(origin_chat) and origin_chat == invoking_chat
 
     # ------------------------------------------------------------------ /retry, /undo
 
@@ -1263,12 +1226,18 @@ class GatewaySessionCommandsMixin:
             return t("gateway.branch.link_requires_at")
         if link_target is not None:
             if stay_here:
-                # In-place switching would rebind THIS chat onto another thread's cut clone —
-                # surprising for a command whose whole point is a fresh thread in the linked
-                # channel. Reject rather than silently drop the flag.
+                # In-place switching would rebind THIS chat onto a cut clone of itself —
+                # surprising for a command whose whole point is a fresh thread. Reject rather
+                # than silently drop the flag.
                 return t("gateway.branch.link_here_unsupported")
             if source.platform != Platform.SLACK:
                 return t("gateway.branch.link_wrong_platform")
+            if not source.thread_id or float(link_target.thread_ts) != float(source.thread_id):
+                # The link is a cutoff selector for THIS conversation: it must point into the
+                # invoking thread itself. The invoker is therefore a participant of the
+                # transcript being copied by construction — no cross-thread or cross-channel
+                # cloning, and DMs follow the same uniform rule.
+                return t("gateway.branch.link_wrong_thread")
             return await self._branch_from_link(event, link_target, branch_title)
         session_key = self._session_key_for_source(source)
         current_entry = await self.async_session_store.get_or_create_session(source)
@@ -1369,11 +1338,12 @@ class GatewaySessionCommandsMixin:
         return branch_dest_source(source, parent_id=parent_id, thread_id=str(thread_id), title=title)
 
     async def _branch_from_link(self, event: MessageEvent, link: SlackLinkTarget, branch_title: str) -> str:
-        """/branch <message link> — clone the session owning the linked THREAD, cut the transcript
-        at the linked message's turn, and open the clone in a NEW sibling thread of that thread's
-        channel (#32105, gateway surface).
+        """``/branch --at <message link>`` — clone THIS session, cut the transcript at the linked
+        message's turn, and open the clone in a NEW sibling thread of this thread's channel
+        (#32105, gateway surface). The link only picks the branch point (the same-thread rule
+        was checked by the caller).
 
-        The invoking chat is never rebound (the clone lives in the linked channel, not here) and
+        The invoking chat is never rebound (the clone lives in a new thread, not here) and
         the original session is untouched; the thread is created BEFORE the child row, mirroring
         the plain path's ordering, so a failed branch leaves no orphan behind."""
         import json as _json
@@ -1381,15 +1351,9 @@ class GatewaySessionCommandsMixin:
         from datetime import datetime as _dt
 
         source = event.source
-        target_source = build_slack_thread_source(link, source)
-        target_key = self._session_key_for_source(target_source)
-        target_id = await self.async_session_store.peek_session_id(target_key)
-        if not target_id:
-            return t("gateway.branch.link_no_session")
-        if not await self._link_branch_target_allowed(source, target_id):
-            # No session id in the denial: the id is a routing handle, not information for a
-            # caller who just failed the authority check.
-            return t("gateway.branch.link_not_allowed")
+        target_source = source  # same-thread rule: the linked thread IS this thread
+        current_entry = await self.async_session_store.get_or_create_session(source)
+        target_id = current_entry.session_id
         try:
             history = await self.async_session_store.load_transcript(target_id)
         except TranscriptReadError:

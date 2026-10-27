@@ -1,9 +1,9 @@
-"""Branch-point resolution for ``/branch <message link>`` (#32105, gateway surface).
+"""Branch-point resolution for ``/branch --at <message link>`` (#32105, gateway surface).
 
-Pure helpers: the parsed permalink names a session (channel + thread) and a cutoff message;
-these functions rebuild the routing source for that thread and cut the transcript at the
-linked message's turn. No runner state — the handler in ``slash_commands_session.py`` owns
-authority checks, session creation and delivery.
+Pure helpers: the permalink names a cutoff message inside the invoking thread (the
+same-thread rule is enforced by the handler), and these functions cut the transcript
+at the linked message's turn. No runner state — the handler in
+``slash_commands_session.py`` owns session creation and delivery.
 """
 
 from __future__ import annotations
@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from agent.context_compressor import is_user_originated_turn
-from gateway.config import Platform
-from gateway.session import SessionSource
 
 # Bot replies carry no platform_message_id (only user rows do), so a linked assistant bubble is
 # matched by row timestamp. Both sides skew ~1s (a user row is written just AFTER the Slack event
@@ -39,20 +37,6 @@ class LinkCutoffUnresolved(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
-
-
-def build_slack_thread_source(link: Any, invoking_source: SessionSource) -> SessionSource:
-    """Routing source for the thread a permalink points into.
-
-    The workspace scope travels from the invoking source (same workspace: a Slack gateway only
-    resolves links it can prove belong to its own scope, and a foreign-workspace link must not
-    resolve); chat_type follows Slack's id alphabet (``D…`` is a DM, anything else a group)."""
-
-    channel_id = str(link.channel_id)
-    chat_type = "dm" if channel_id.startswith("D") else "group"
-    return SessionSource(platform=Platform.SLACK, chat_id=channel_id, chat_type=chat_type,
-                         thread_id=str(link.thread_ts), user_id=invoking_source.user_id,
-                         scope_id=invoking_source.scope_id)
 
 
 def _row_timestamp(message: dict) -> Optional[float]:
