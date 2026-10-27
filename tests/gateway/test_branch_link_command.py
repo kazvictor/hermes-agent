@@ -133,6 +133,11 @@ def test_parse_at_flag_forces_link_mode():
     # Without the flag nothing link-shaped is interpreted: a bare permalink is just a title.
     stay_here, link, title, forced = parse_branch_link_args(f"{_link()} my name")
     assert not stay_here and link is None and forced is False and "archives/" in title
+    # A ``--at`` typed after the link is redundant, not a title word.
+    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at my name")
+    assert not stay_here and link is not None and title == "my name" and not forced
+    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at")
+    assert link is not None and title == ""
 
 
 # ── cutoff resolution (pure) ───────────────────────────────────────────────────────

@@ -145,3 +145,6 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
     # A stray second ``--at`` is a title word nobody meant; drop it.
     cleaned = " ".join(token for token in cleaned.split() if token != "--at")
     return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), True
+    # A ``--at`` typed after the link is redundant, not a title word.
+    cleaned = " ".join(token for token in cleaned.split() if token != "--at")
+    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced
