@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "Die Runde der verlinkten Nachricht ist noch nicht abgeschlossen, daher gibt es noch nichts Stabiles, davon zu verzweigen. Versuche es gleich noch einmal."
     link_thread_failed: "Für die Verzweigung konnte kein neuer Thread geöffnet werden; nichts wurde geändert."
     link_here_unsupported: "`--here` lässt sich nicht mit einem Nachrichten-Link kombinieren; eine Verzweigung über einen Link öffnet immer einen neuen Thread."
+    link_requires_at: "Das sieht nach einem Slack-Nachrichten-Link aus — übergib ihn mit `--at`: `/branch --at <Link> [Name]`."
     branched_from_link_one: "⑂ Verzweigt **{title}** ab der verlinkten Nachricht ({count} Nachricht kopiert) in einen neuen Thread\nThread: {thread}\nOriginal: `{parent}` — unangetastet\nZweig: `{new}`"
     branched_from_link_many: "⑂ Verzweigt **{title}** ab der verlinkten Nachricht ({count} Nachrichten kopiert) in einen neuen Thread\nThread: {thread}\nOriginal: `{parent}` — unangetastet\nZweig: `{new}`"
   commands:

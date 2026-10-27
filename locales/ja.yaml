@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "リンクされたメッセージのターンがまだ終わっていないため、分岐できる確定した内容がまだありません。少し後にもう一度お試しください。"
     link_thread_failed: "分岐先の新しいスレッドを作成できませんでした。何も変更されていません。"
     link_here_unsupported: "`--here` はメッセージリンクと併用できません。リンクによる分岐は常に新しいスレッドに作成されます。"
+    link_requires_at: "Slackのメッセージリンクのようです — `--at` 付きで渡してください: `/branch --at <リンク> [名前]`。"
     branched_from_link_one: "⑂ リンクされたメッセージから **{title}** を分岐し（{count} 件のメッセージをコピー）、新しいスレッドに作成しました\nスレッド: {thread}\n元: `{parent}` — 変更なし\n分岐: `{new}`"
     branched_from_link_many: "⑂ リンクされたメッセージから **{title}** を分岐し（{count} 件のメッセージをコピー）、新しいスレッドに作成しました\nスレッド: {thread}\n元: `{parent}` — 変更なし\n分岐: `{new}`"
   commands:

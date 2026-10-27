@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "連結的訊息所在回合尚未完成，因此還沒有可分支的穩定內容。請稍後再試。"
     link_thread_failed: "無法為分支開啟新討論串；未做任何變更。"
     link_here_unsupported: "`--here` 不能與訊息連結組合使用；透過連結的分支總是開啟新討論串。"
+    link_requires_at: "這看起來是 Slack 訊息連結 — 請透過 `--at` 傳入：`/branch --at <連結> [名稱]`。"
     branched_from_link_one: "⑂ 已從連結的訊息分支出 **{title}**（已複製 {count} 則訊息）並開啟新討論串\n討論串：{thread}\n原始：`{parent}` — 未變動\n分支：`{new}`"
     branched_from_link_many: "⑂ 已從連結的訊息分支出 **{title}**（已複製 {count} 則訊息）並開啟新討論串\n討論串：{thread}\n原始：`{parent}` — 未變動\n分支：`{new}`"
   commands:

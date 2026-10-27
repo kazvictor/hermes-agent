@@ -166,6 +166,7 @@ gateway:
     link_turn_incomplete: "Le tour du message lié n'est pas encore terminé, il n'y a donc encore rien de stable à partir duquel se brancher. Réessayez dans un instant."
     link_thread_failed: "Impossible d'ouvrir un nouveau fil pour la branche ; rien n'a été modifié."
     link_here_unsupported: "`--here` ne peut pas être combiné avec un lien de message ; une branche créée depuis un lien ouvre toujours un nouveau fil."
+    link_requires_at: "Cela ressemble à un lien de message Slack — passez-le avec `--at` : `/branch --at <lien> [nom]`."
     branched_from_link_one: "⑂ Branche **{title}** créée depuis le message lié ({count} message copié) dans un nouveau fil\nFil : {thread}\nOriginal : `{parent}` — intact\nBranche : `{new}`"
     branched_from_link_many: "⑂ Branche **{title}** créée depuis le message lié ({count} messages copiés) dans un nouveau fil\nFil : {thread}\nOriginal : `{parent}` — intact\nBranche : `{new}`"
   commands:

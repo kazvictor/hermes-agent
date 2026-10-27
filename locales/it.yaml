@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "Il turno del messaggio collegato non è ancora terminato, quindi non c'è ancora nulla di stabile da cui diramare. Riprova tra poco."
     link_thread_failed: "Impossibile aprire un nuovo thread per il ramo; nulla è stato modificato."
     link_here_unsupported: "`--here` non può essere combinato con un link a un messaggio; un ramo creato da un link apre sempre un nuovo thread."
+    link_requires_at: "Sembra un link a un messaggio Slack — passalo con `--at`: `/branch --at <link> [nome]`."
     branched_from_link_one: "⑂ Ramificato **{title}** dal messaggio collegato ({count} messaggio copiato) in un nuovo thread\nThread: {thread}\nOriginale: `{parent}` — intatto\nRamo: `{new}`"
     branched_from_link_many: "⑂ Ramificato **{title}** dal messaggio collegato ({count} messaggi copiati) in un nuovo thread\nThread: {thread}\nOriginale: `{parent}` — intatto\nRamo: `{new}`"
   commands:

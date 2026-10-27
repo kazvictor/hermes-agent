@@ -143,6 +143,7 @@ gateway:
     link_turn_incomplete: "The linked message's turn hasn't finished yet, so there is nothing stable to branch from. Try again in a moment."
     link_thread_failed: "Couldn't open a new thread for the branch; nothing was changed."
     link_here_unsupported: "`--here` can't be combined with a message link; a linked branch always opens a new thread."
+    link_requires_at: "That looks like a Slack message link — pass it with `--at`: `/branch --at <link> [name]`."
     branched_from_link_one: "⑂ Branched **{title}** from the linked message ({count} message copied) into a new thread\nThread: {thread}\nOriginal: `{parent}` — untouched\nBranch: `{new}`"
     branched_from_link_many: "⑂ Branched **{title}** from the linked message ({count} messages copied) into a new thread\nThread: {thread}\nOriginal: `{parent}` — untouched\nBranch: `{new}`"
   commands:

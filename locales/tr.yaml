@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "Bağlantı verilen mesajın turu henüz bitmedi, bu yüzden dallanacak kararlı bir şey henüz yok. Birazdan tekrar deneyin."
     link_thread_failed: "Dal için yeni bir konu açılamadı; hiçbir şey değiştirilmedi."
     link_here_unsupported: "`--here` bir mesaj bağlantısıyla birleştirilemez; bağlantıyla yapılan dallanma her zaman yeni bir konu açar."
+    link_requires_at: "Bu bir Slack mesaj bağlantısına benziyor — `--at` ile geçirin: `/branch --at <bağlantı> [ad]`."
     branched_from_link_one: "⑂ **{title}**, bağlı olunan mesajdan dallandı ({count} mesaj kopyalandı) ve yeni bir konuya açıldı\nKonu: {thread}\nOrijinal: `{parent}` — değişmedi\nDal: `{new}`"
     branched_from_link_many: "⑂ **{title}**, bağlı olunan mesajdan dallandı ({count} mesaj kopyalandı) ve yeni bir konuya açıldı\nKonu: {thread}\nOrijinal: `{parent}` — değişmedi\nDal: `{new}`"
   commands:

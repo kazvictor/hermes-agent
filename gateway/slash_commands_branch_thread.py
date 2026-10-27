@@ -120,13 +120,12 @@ def parse_slack_archive_link(text: str) -> Optional[SlackLinkTarget]:
 def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], str, bool]:
     """``(stay_here, link, title, link_forced)`` from the text after ``/branch``.
 
-    ``--at`` is the explicit form: whatever follows must carry a Slack thread permalink,
-    with no guessing about whether the text means a title or a link (the same flag the
-    CLI surface proposes for ``--at <message_id>`` in #32105, holding the branch-point slot
-    across surfaces). Without it, a bare permalink still names the session and the cutoff
-    (the natural Slack gesture — paste the link, done), and whatever remains after the link
-    tokens is the optional title. ``--here`` keeps its legacy leading-flag handling in either
-    order, and the CLI keeps using :func:`parse_branch_args` unchanged."""
+    ``--at <link>`` is THE branch-point form: whatever follows the flag must carry a Slack
+    thread permalink, and the flag holds the same branch-point slot the CLI surface proposes
+    for ``--at <message_id>`` in #32105. Without the flag nothing link-shaped is interpreted —
+    the text is just the title, exactly as before this feature. ``--here`` keeps its legacy
+    leading-flag handling in either order, and the CLI keeps using :func:`parse_branch_args`
+    unchanged."""
 
     stay_here, text = parse_branch_args(raw)
     forced = False
@@ -137,11 +136,13 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
         # never decides whether the combination is rejected.
         inner_here, inner_text = parse_branch_args(rest)
         stay_here, text = stay_here or inner_here, inner_text
+    if not forced:
+        return stay_here, None, text, False
     link = parse_slack_archive_link(text)
     if link is None:
-        return stay_here, None, text, forced
+        return stay_here, None, text, True
     cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
     cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
-    # A ``--at`` typed after the link is redundant, not a title word.
+    # A stray second ``--at`` is a title word nobody meant; drop it.
     cleaned = " ".join(token for token in cleaned.split() if token != "--at")
-    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced
+    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), True

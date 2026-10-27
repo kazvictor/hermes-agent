@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "O turno da mensagem vinculada ainda não terminou, então ainda não há nada estável para ramificar. Tente novamente daqui a pouco."
     link_thread_failed: "Não foi possível abrir um novo tópico para o ramo; nada foi alterado."
     link_here_unsupported: "`--here` não pode ser combinado com um link de mensagem; um ramo via link sempre abre em um novo tópico."
+    link_requires_at: "Isso parece um link de mensagem do Slack — passe-o com `--at`: `/branch --at <link> [nome]`."
     branched_from_link_one: "⑂ Ramificado **{title}** a partir da mensagem vinculada ({count} mensagem copiada) em um novo tópico\nTópico: {thread}\nOriginal: `{parent}` — intacto\nRamo: `{new}`"
     branched_from_link_many: "⑂ Ramificado **{title}** a partir da mensagem vinculada ({count} mensagens copiadas) em um novo tópico\nTópico: {thread}\nOriginal: `{parent}` — intacto\nRamo: `{new}`"
   commands:

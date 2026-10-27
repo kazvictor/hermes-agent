@@ -1252,13 +1252,15 @@ class GatewaySessionCommandsMixin:
         source = event.source
         args = event.get_command_args()
         stay_here, link_target, branch_title, link_forced = parse_branch_link_args(args)
-        # Unparsable in three shapes: an explicit ``--at`` with no readable permalink in the
-        # rest, a bare link that looks like a Slack one but does not parse (usually a
-        # channel-root permalink without thread_ts), and --here combined with a link. Failing
-        # loudly beats branching with a URL as the title; the http guard keeps a plain title
-        # that merely mentions "archives/" out of the way.
-        if link_target is None and (link_forced or ("archives/" in args and "http" in args)):
+        if link_target is None and link_forced:
+            # ``--at`` was given but nothing after it reads as a Slack thread permalink
+            # (non-Slack URL, channel-root permalink, or nothing at all).
             return t("gateway.branch.link_unparsable")
+        if link_target is None and "archives/" in args and "http" in args:
+            # A bare Slack link with no --at: not interpreted (titles stay titles), but the
+            # predictable mistake gets pointed at the right form instead of a plain branch
+            # of this chat carrying a URL as its title.
+            return t("gateway.branch.link_requires_at")
         if link_target is not None:
             if stay_here:
                 # In-place switching would rebind THIS chat onto another thread's cut clone —

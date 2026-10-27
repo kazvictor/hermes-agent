@@ -140,6 +140,7 @@ gateway:
     link_turn_incomplete: "링크된 메시지의 턴이 아직 끝나지 않아 분기할 수 있는 확정된 내용이 없습니다. 잠시 후 다시 시도하세요."
     link_thread_failed: "분기용 새 스레드를 열지 못했습니다. 아무것도 변경되지 않았습니다."
     link_here_unsupported: "`--here`는 메시지 링크와 함께 사용할 수 없습니다. 링크를 통한 분기는 항상 새 스레드에 만들어집니다."
+    link_requires_at: "Slack 메시지 링크로 보입니다 — `--at`와 함께 전달하세요: `/branch --at <링크> [이름]`."
     branched_from_link_one: "⑂ 링크된 메시지에서 **{title}** 로 분기해 (메시지 {count}개 복사) 새 스레드에 만들었습니다\n스레드: {thread}\n원본: `{parent}` — 변경 없음\n분기: `{new}`"
     branched_from_link_many: "⑂ 링크된 메시지에서 **{title}** 로 분기해 (메시지 {count}개 복사) 새 스레드에 만들었습니다\n스레드: {thread}\n원본: `{parent}` — 변경 없음\n분기: `{new}`"
   commands:

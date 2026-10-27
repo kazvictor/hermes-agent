@@ -143,6 +143,7 @@ gateway:
     link_turn_incomplete: "A hivatkozott üzenet köre még nem fejeződött be, így még nincs stabil kiindulópont az elágaztatáshoz. Próbáld újra pár pillanat múlva."
     link_thread_failed: "Nem sikerült új szálat nyitni az ágnak; semmi nem változott."
     link_here_unsupported: "A `--here` nem kombinálható üzenetlinkkel; a link alapú elágaztatás mindig új szálat nyit."
+    link_requires_at: "Ez Slack-üzenetlinknek tűnik — add meg vele: `--at`: `/branch --at <link> [név]`."
     branched_from_link_one: "⑂ Elágazás **{title}** a hivatkozott üzenettől ({count} üzenet másolva) új szálban\nSzál: {thread}\nEredeti: `{parent}` — érintetlen\nÁg: `{new}`"
     branched_from_link_many: "⑂ Elágazás **{title}** a hivatkozott üzenettől ({count} üzenet másolva) új szálban\nSzál: {thread}\nEredeti: `{parent}` — érintetlen\nÁg: `{new}`"
   commands:
