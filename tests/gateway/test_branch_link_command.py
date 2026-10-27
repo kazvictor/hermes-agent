@@ -110,11 +110,23 @@ def test_parse_rejects_non_thread_links_and_plain_text():
 
 
 def test_parse_branch_link_args_extracts_flag_link_and_title():
-    stay_here, link, title = parse_branch_link_args(f"--here {_link()} alternate path")
-    assert stay_here and link is not None and title == "alternate path"
+    stay_here, link, title, forced = parse_branch_link_args(f"--here {_link()} alternate path")
+    assert stay_here and link is not None and title == "alternate path" and not forced
     # A title that is not a link keeps the legacy plain-branch shape.
-    stay_here, link, title = parse_branch_link_args("side quest")
-    assert not stay_here and link is None and title == "side quest"
+    stay_here, link, title, forced = parse_branch_link_args("side quest")
+    assert not stay_here and link is None and title == "side quest" and not forced
+
+
+def test_parse_at_flag_forces_link_mode():
+    # Explicit form: the rest must carry a permalink; the title survives without sniffing.
+    stay_here, link, title, forced = parse_branch_link_args(f"--at {_link()} alternate path")
+    assert not stay_here and link is not None and title == "alternate path" and forced
+    # --at with nothing readable after it: forced, no link, no branch.
+    stay_here, link, title, forced = parse_branch_link_args("--at")
+    assert not stay_here and link is None and forced
+    # Flag order does not decide whether --here + link is rejected.
+    stay_here, link, title, forced = parse_branch_link_args(f"--at --here {_link()}")
+    assert stay_here and link is not None and forced and title == ""
 
 
 # ── cutoff resolution (pure) ───────────────────────────────────────────────────────
@@ -298,3 +310,26 @@ async def test_branch_link_rejects_here_and_ignores_plain_archives_titles(store)
     assert store.get_or_create_session(
         _thread_source(thread=_SlackAdapter().thread_id)).session_id != (
         store.get_or_create_session(source).session_id)
+
+
+@pytest.mark.asyncio
+async def test_branch_at_flag_flows_and_fails_loudly(store):
+    target = _seed_three_turns(store, _thread_source())
+    invoking = _thread_source(thread="1793000888.000888")
+    adapter = _SlackAdapter()
+    runner = _runner(store, adapter)
+    # The explicit form behaves exactly like the pasted-link sugar.
+    reply = await runner._handle_branch_command(
+        MessageEvent(text=f"/branch --at {_link()} explicit path", source=invoking))
+    assert adapter.calls == [(CHANNEL, "explicit path")]
+    clone_entry = store.get_or_create_session(_thread_source(thread=adapter.thread_id))
+    assert clone_entry.session_id != target.session_id
+    assert [m["content"] for m in store._db.get_messages(clone_entry.session_id)] == [
+        "first ask", "first reply", "second ask", "second reply"]
+    assert "explicit path" in reply
+    # --at with a non-Slack URL or nothing after it: unparsable, nothing created.
+    for args in ("--at https://github.com/org/repo/pull/5", "--at"):
+        reply = await runner._handle_branch_command(
+            MessageEvent(text=f"/branch {args}", source=invoking))
+        assert reply == t("gateway.branch.link_unparsable")
+    assert store.get_or_create_session(_thread_source()).session_id == target.session_id

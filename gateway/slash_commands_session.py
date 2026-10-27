@@ -1251,11 +1251,13 @@ class GatewaySessionCommandsMixin:
             return self._session_db_unavailable_reply()
         source = event.source
         args = event.get_command_args()
-        stay_here, link_target, branch_title = parse_branch_link_args(args)
-        if link_target is None and "archives/" in args and "http" in args:
-            # Looked like a link but did not parse (usually: a channel-root permalink without
-            # thread_ts). Failing loudly beats branching with a URL as the title; the http guard
-            # keeps a plain title that merely mentions "archives/" out of the way.
+        stay_here, link_target, branch_title, link_forced = parse_branch_link_args(args)
+        # Unparsable in three shapes: an explicit ``--at`` with no readable permalink in the
+        # rest, a bare link that looks like a Slack one but does not parse (usually a
+        # channel-root permalink without thread_ts), and --here combined with a link. Failing
+        # loudly beats branching with a URL as the title; the http guard keeps a plain title
+        # that merely mentions "archives/" out of the way.
+        if link_target is None and (link_forced or ("archives/" in args and "http" in args)):
             return t("gateway.branch.link_unparsable")
         if link_target is not None:
             if stay_here:

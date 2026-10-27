@@ -117,17 +117,29 @@ def parse_slack_archive_link(text: str) -> Optional[SlackLinkTarget]:
                            message_ts=_link_message_ts(path.group(2)))
 
 
-def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], str]:
-    """``(stay_here, link, title)`` from the text after ``/branch``.
+def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], str, bool]:
+    """``(stay_here, link, title, link_forced)`` from the text after ``/branch``.
 
-    A Slack permalink names both the session to branch and the cutoff message; whatever remains
-    after the link tokens is the optional title. Links ride on the same leading ``--here``
-    handling as plain titles (the CLI keeps using :func:`parse_branch_args` unchanged)."""
+    ``--at`` is the explicit form: whatever follows must carry a Slack thread permalink,
+    with no guessing about whether the text means a title or a link (the same flag the
+    CLI surface proposes for ``--at <message_id>`` in #32105, holding the branch-point slot
+    across surfaces). Without it, a bare permalink still names the session and the cutoff
+    (the natural Slack gesture — paste the link, done), and whatever remains after the link
+    tokens is the optional title. ``--here`` keeps its legacy leading-flag handling in either
+    order, and the CLI keeps using :func:`parse_branch_args` unchanged."""
 
     stay_here, text = parse_branch_args(raw)
+    forced = False
+    head, _, rest = text.partition(" ")
+    if head == "--at":
+        forced = True
+        # Tolerate ``--at --here <link>``: re-strip a leading --here so the flag order
+        # never decides whether the combination is rejected.
+        inner_here, inner_text = parse_branch_args(rest)
+        stay_here, text = stay_here or inner_here, inner_text
     link = parse_slack_archive_link(text)
     if link is None:
-        return stay_here, None, text
+        return stay_here, None, text, forced
     cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
     cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
-    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip()
+    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced
