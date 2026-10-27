@@ -9,6 +9,7 @@ always branch in place. Pure helpers only — the handler lives in ``slash_comma
 from __future__ import annotations
 
 import dataclasses
+import re
 from typing import Optional
 
 from gateway.config import Platform
@@ -160,3 +161,17 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
     cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
     cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
     return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced
+def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], str]:
+    """``(stay_here, link, title)`` from the text after ``/branch``.
+
+    A Slack permalink names both the session to branch and the cutoff message; whatever remains
+    after the link tokens is the optional title. Links ride on the same leading ``--here``
+    handling as plain titles (the CLI keeps using :func:`parse_branch_args` unchanged)."""
+
+    stay_here, text = parse_branch_args(raw)
+    link = parse_slack_archive_link(text)
+    if link is None:
+        return stay_here, None, text
+    cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
+    cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
+    return stay_here, link, re.sub(r"\s+", " ", cleaned).strip()

@@ -109,6 +109,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
                "Session", aliases=("fork",), args_hint="[--here] [name]"),
                "Session", aliases=("fork",), args_hint="[--here] [--at <link>] [name]"),
                "Session", aliases=("fork",), args_hint="[--here] [--at <link> | <message link>] [name]"),
+               "Session", aliases=("fork",), args_hint="[--here] [message link] [name]"),
     CommandDef("worktree", "Show, list, create, or prune isolated git worktrees", "Session",
                cli_only=True, args_hint="[new [name]|list|prune [--dry-run]]",
                subcommands=("new", "list", "prune")),

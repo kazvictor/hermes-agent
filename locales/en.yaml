@@ -145,6 +145,8 @@ gateway:
     link_requires_at: "That looks like a Slack message link — pass it with `--at`: `/branch --at <link> [name]`."
     link_no_session: "No conversation is bound to that thread on this gateway (another bot or profile may own it)."
     link_not_allowed: "You don't have access to branch that conversation."
+    link_no_session: "No conversation is bound to that thread on this gateway (another bot or profile may own it)."
+    link_not_allowed: "You don't have access to branch that conversation ({name})."
     link_message_not_found: "The linked message isn't in that conversation's current history."
     link_behind_history: "The linked message is older than that conversation's current history window (earlier turns were compacted into a summary). Branch from a later message, or use plain `/branch` for the full current history."
     link_turn_incomplete: "The linked message's turn hasn't finished yet, so there is nothing stable to branch from. Try again in a moment."
