@@ -32,6 +32,10 @@ _GLOBAL_DEFAULTS: dict[str, Any] = {
     # Working-state text on text-rendering indicators (Slack assistant status): "full"/true = verb +
     # argument preview, "verb" = verb only (keeps paths out of shared channels), "off"/false = static.
     "live_status": "full",
+    # LLM describe layer for terminal progress previews: an aux model rewrites opaque command
+    # lines (sleep-poll chains, multi-line scripts) as ≤12-word captions inside the editable
+    # progress bubble. Opt-in; mechanical sleep-badge previews cover the no-model path.
+    "progress_describe": False,
 }
 
 # Tiers: HIGH = editing, personal/team use; MEDIUM = editing but customer-facing;
@@ -195,6 +199,7 @@ _NORMALISERS: dict[str, Any] = {
     "tool_progress_grouping": _norm_choice(("accumulate", "separate")),
     "reasoning_style": _norm_choice(("code", "blockquote", "subtext")),
     "tool_preview_length": _norm_int,
+    "progress_describe": _norm_bool,
 }
 
 

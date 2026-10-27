@@ -797,6 +797,9 @@ DEFAULT_CONFIG = {
         # of skills); route cheaper via `hermes model` → auxiliary → Curator.
         "curator": _aux(600),
         "monitor": _aux(60),   # important-mail 0-10 scorer; high-volume, small model fine
+        # ≤12-word captions for opaque terminal-progress previews (sleep-poll chains, multi-line
+        # scripts); small+fast model recommended — the call is async and never blocks a turn.
+        "progress_describe": _aux(15, reasoning_effort=False),
         # Post-turn self-improvement fork (save memory / patch skill). "auto" = main model replaying
         # the full conversation (warm cache); other models replay a compact digest (~3-5x cheaper).
         # enabled=false skips auto spawns (/refine still works). An explicit max_input_tokens caps
