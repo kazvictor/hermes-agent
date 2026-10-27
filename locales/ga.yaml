@@ -134,6 +134,8 @@ gateway:
     link_unparsable: "Is cosúil gur nasc Slack é seo, ach níorbh fhéidir teachtaireacht snáithe a léamh uaidh. Nasc teachtaireacht laistigh de snáithe: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Déantar naisc theachtaireachta a réiteach ar an ardán as a dtagann siad; seol an /branch seo ó Slack."
     link_wrong_thread: "Is ó shnáith eile an teachtaireacht sin — gearrann /branch --at an chomhrá ina ritheann tú é, mar sin glaoigh é laistigh den snáith a chomhairlíonn an nasc."
+    link_no_session: "Níl aon chomhrá ceangailte leis an snáithe sin ar an gateway seo (is féidir go bhfuil bota nó próifíl eile ina úinéir)."
+    link_not_allowed: "Níl cead agat an comhrá sin a bhrianseáil."
     link_message_not_found: "Níl an teachtaireacht nasctha i stair reatha an chomhrá sin."
     link_behind_history: "Tá an teachtaireacht nasctha níos sine ná fuinneog staire reatha an chomhrá sin (cuireadh na casanna luatha in achoimre). Brainseáil ó theachtaireacht níos déanaí, nó bain úsáid as `/branch` simplí leis an stair reatha iomlán."
     link_turn_incomplete: "Níl cas na teachtaireachta nasctha críochnaithe fós, mar sin níl aon rud cobhsaí le brainseáil uaidh go fóill. Bain triail eile as ar ball."

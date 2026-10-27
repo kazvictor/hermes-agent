@@ -258,11 +258,14 @@ async def test_branch_link_wrong_thread_and_unparsable_link(store):
 
 @pytest.mark.asyncio
 async def test_branch_link_dm_follows_the_same_thread_rule(store):
+async def test_branch_link_authority_gates(store):
+    _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
     # A different channel may not name the target.
     other_channel = _thread_source(channel="C0OTHER", thread="1793000888.000888")
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {_link()}", source=other_channel))
+        MessageEvent(text=f"/branch {_link()}", source=other_channel))
     assert reply == t("gateway.branch.link_not_allowed")
     # A DM session keeps the strict /resume rule: same DM, different thread is still blocked.
     dm_thread = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
@@ -277,6 +280,7 @@ async def test_branch_link_dm_follows_the_same_thread_rule(store):
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {dm_link}", source=from_dm_sibling))
     assert reply == t("gateway.branch.link_wrong_thread")
+        MessageEvent(text=f"/branch {dm_link}", source=from_dm_sibling))
     assert reply == t("gateway.branch.link_not_allowed")
     # The DM's own thread may.
     reply = await runner._handle_branch_command(
@@ -324,6 +328,7 @@ async def test_branch_link_from_other_platform_is_rejected(store):
                             user_id="U1", scope_id="g1")
     runner = _runner(store, None)
     reply = await runner._handle_branch_command(MessageEvent(text=f"/branch --at {_link()}", source=discord))
+    reply = await runner._handle_branch_command(MessageEvent(text=f"/branch {_link()}", source=discord))
     assert reply == t("gateway.branch.link_wrong_platform")
 
 
@@ -335,6 +340,7 @@ async def test_branch_link_rejects_here_and_ignores_plain_archives_titles(store)
     # --here cannot rebind this chat onto another thread's cut clone.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --here --at {_link()}", source=_thread_source(thread="1793000888.000888")))
+        MessageEvent(text=f"/branch --here {_link()}", source=_thread_source(thread="1793000888.000888")))
     assert reply == t("gateway.branch.link_here_unsupported")
     # A plain title that merely mentions archives/ (no URL) branches normally, title intact.
     reply = await runner._handle_branch_command(
@@ -402,3 +408,4 @@ async def test_branch_at_flag_flows_and_fails_loudly(store):
             MessageEvent(text=f"/branch {args}", source=invoking))
         assert reply == t("gateway.branch.link_unparsable")
     assert store.get_or_create_session(_thread_source()).session_id == target.session_id
+        store.get_or_create_session(source).session_id)

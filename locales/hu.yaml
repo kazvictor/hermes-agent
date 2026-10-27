@@ -137,6 +137,8 @@ gateway:
     link_unparsable: "Ez Slack-linknek tűnik, de nem sikerült belőle szálüzenetet kiolvasni. Egy szálon belüli üzenetre hivatkozz: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Az üzenetlinkeket azon a platformon oldjuk fel, amelyről érkeztek; küldd ezt a /branch parancsot Slackből."
     link_wrong_thread: "Ez az üzenet egy másik szálból származik — a /branch --at azt a beszélgetést vágja el, amelyben futtatod, hívd meg hát abban a szálban, amelyre a hivatkozás mutat."
+    link_no_session: "Ehhez a gatewayhez nincs beszélgetés kötve ehhez a szálhoz (lehet, hogy egy másik bot vagy profil birtokolja)."
+    link_not_allowed: "Nincs hozzáférésed ahhoz, hogy elágaztasd azt a beszélgetést."
     link_message_not_found: "A hivatkozott üzenet nem szerepel annak a beszélgetésnek a jelenlegi előzményeiben."
     link_behind_history: "A hivatkozott üzenet régebbi, mint annak a beszélgetésnek a jelenlegi előzményablaka (a korábbi körek összefoglalóba sűrítve lettek). Elágaztass egy későbbi üzenettől, vagy használd a sima `/branch` parancsot a teljes jelenlegi előzményekhez."
     link_turn_incomplete: "A hivatkozott üzenet köre még nem fejeződött be, így még nincs stabil kiindulópont az elágaztatáshoz. Próbáld újra pár pillanat múlva."

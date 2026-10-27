@@ -134,6 +134,8 @@ gateway:
     link_unparsable: "这看起来像是 Slack 链接，但无法从中读取话题消息。请链接话题内的消息：`…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "消息链接在其来源平台上解析；请从 Slack 发送此 /branch 命令。"
     link_wrong_thread: "该消息来自另一个话题 — /branch --at 剪切的是你运行它的那个对话，因此请在链接指向的话题内调用。"
+    link_no_session: "此网关上没有绑定到该话题的会话（可能由另一个机器人或配置文件持有）。"
+    link_not_allowed: "你没有权限分支该对话。"
     link_message_not_found: "链接的消息不在该对话的当前历史中。"
     link_behind_history: "链接的消息早于该对话的当前历史窗口（较早的轮次已压缩为摘要）。请从更晚的消息开始分支，或使用普通 `/branch` 获取完整的当前历史。"
     link_turn_incomplete: "链接的消息所在轮次尚未完成，因此还没有可分支的稳定内容。请稍后重试。"

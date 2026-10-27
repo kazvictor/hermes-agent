@@ -1044,6 +1044,11 @@ class GatewaySessionCommandsMixin:
         # loudly beats branching with a URL as the title; the http guard keeps a plain title
         # that merely mentions "archives/" out of the way.
         if link_target is None and (link_forced or ("archives/" in args and "http" in args)):
+        stay_here, link_target, branch_title = parse_branch_link_args(args)
+        if link_target is None and "archives/" in args and "http" in args:
+            # Looked like a link but did not parse (usually: a channel-root permalink without
+            # thread_ts). Failing loudly beats branching with a URL as the title; the http guard
+            # keeps a plain title that merely mentions "archives/" out of the way.
             return t("gateway.branch.link_unparsable")
         if link_target is None and "archives/" in args and "http" in args:
             # A bare Slack link with no --at: not interpreted (titles stay titles), but the
@@ -1055,6 +1060,9 @@ class GatewaySessionCommandsMixin:
                 # In-place switching would rebind THIS chat onto a cut clone of itself —
                 # surprising for a command whose whole point is a fresh thread. Reject rather
                 # than silently drop the flag.
+                # In-place switching would rebind THIS chat onto another thread's cut clone —
+                # surprising for a command whose whole point is a fresh thread in the linked
+                # channel. Reject rather than silently drop the flag.
                 return t("gateway.branch.link_here_unsupported")
             if source.platform != Platform.SLACK:
                 return t("gateway.branch.link_wrong_platform")
@@ -1181,6 +1189,15 @@ class GatewaySessionCommandsMixin:
         target_source = source  # same-thread rule: the linked thread IS this thread
         current_entry = await self.async_session_store.get_or_create_session(source)
         target_id = current_entry.session_id
+        target_source = build_slack_thread_source(link, source)
+        target_key = self._session_key_for_source(target_source)
+        target_id = await self.async_session_store.peek_session_id(target_key)
+        if not target_id:
+            return t("gateway.branch.link_no_session")
+        if not await self._link_branch_target_allowed(source, target_id):
+            # No session id in the denial: the id is a routing handle, not information for a
+            # caller who just failed the authority check.
+            return t("gateway.branch.link_not_allowed")
         try:
             history = await self.async_session_store.load_transcript(target_id)
         except TranscriptReadError:
