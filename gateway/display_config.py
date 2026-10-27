@@ -10,6 +10,7 @@ Exception: ``display.streaming`` is CLI-only; gateway streaming follows the top-
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 # Settings configurable per-platform; other display settings are CLI-only.
@@ -32,6 +33,10 @@ _GLOBAL_DEFAULTS: dict[str, Any] = {
     # Working-state text on text-rendering indicators (Slack assistant status): "full"/true = verb +
     # argument preview, "verb" = verb only (keeps paths out of shared channels), "off"/false = static.
     "live_status": "full",
+    # LLM describe layer for terminal progress previews: an aux model rewrites opaque command
+    # lines (sleep-poll chains, multi-line scripts) as ≤12-word captions inside the editable
+    # progress bubble. Opt-in; mechanical sleep-badge previews cover the no-model path.
+    "progress_describe": False,
 }
 
 # Tiers: HIGH = editing, personal/team use; MEDIUM = editing but customer-facing;
@@ -213,6 +218,7 @@ _NORMALISERS: dict[str, Any] = {
     "tool_progress_grouping": _norm_choice(("accumulate", "separate")),
     "reasoning_style": _norm_choice(("code", "blockquote", "subtext")),
     "tool_preview_length": _norm_int,
+    "progress_describe": _norm_bool,
 }
 
 
@@ -220,3 +226,58 @@ def _normalise(setting: str, value: Any) -> Any:
     """Normalise a user-supplied value for *setting*; unknown settings pass through."""
     norm = _NORMALISERS.get(setting)
     return norm(value) if norm else value
+
+
+# LOCAL's per-platform config key (``_platform_config_key(Platform.LOCAL)``): where a local session's
+# ``/reasoning show|hide`` and ``/footer`` save, and what every local surface reads.
+LOCAL_DISPLAY_KEY = "cli"
+# The per-platform display settings a local surface takes from the local key over the global one.
+_LOCAL_OVERLAY_KEYS = ("show_reasoning", "runtime_footer")
+
+
+def local_display_config(display: Any) -> dict[str, Any]:
+    """*display* (a ``config.yaml`` ``display`` block) as a local surface (classic CLI, Ink, Desktop,
+    a local turn) resolves it: ``display.platforms.cli.<key>`` over ``display.<key>`` for the settings
+    the local commands save there. No second key is written; the block is returned copied."""
+    display = dict(display) if isinstance(display, dict) else {}
+    platforms = display.get("platforms")
+    local = platforms.get(LOCAL_DISPLAY_KEY) if isinstance(platforms, dict) else None
+    if not isinstance(local, dict):
+        return display
+    for key in _LOCAL_OVERLAY_KEYS:
+        value = local.get(key)
+        if value is None:
+            continue
+        if isinstance(value, dict) and isinstance(display.get(key), dict):
+            value = {**display[key], **value}
+        display[key] = _normalise(key, value)
+    return display
+
+
+@dataclasses.dataclass
+class RunAgentDisplay:
+    """Per-turn display / progress settings resolved by the gateway's display-settings pass.
+
+    Lives here, beside the resolver, so the ``gateway/run.py`` facade stays lean;
+    ``GatewayRunner._RunAgentDisplay`` aliases it for the turn mixins' existing access path.
+    """
+
+    user_config: Any = None
+    platform_key: Any = None
+    enabled_toolsets: Any = None
+    disabled_toolsets: Any = None
+    resolve_display_setting: Any = None
+    progress_mode: Any = None
+    progress_grouping: Any = None
+    _progress_describe_enabled: Any = None
+    _display_surface_mode: Any = None
+    tool_progress_enabled: Any = None
+    _live_status_mode: Any = None
+    _live_status_adapter: Any = None
+    log_mode_enabled: Any = None
+    log_queue: Any = None
+    interim_assistant_messages_enabled: Any = None
+    _thinking_enabled: Any = None
+    _native_slack_task_cards: Any = None
+    needs_progress_queue: Any = None
+    _generic_status_phrase: Any = None
