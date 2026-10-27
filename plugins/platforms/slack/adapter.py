@@ -1027,6 +1027,10 @@ class SlackAdapter(BasePlatformAdapter):
     _CHANNEL_TEAM_MAX = 10000
     _APPROVAL_RESOLVED_MAX = _CLARIFY_RESOLVED_MAX = _ACTIVE_STATUS_THREADS_MAX = 1000
     _CLARIFY_MESSAGE_MAX = 1000
+    # Slack truncates a button's visible label at ~30 chars (Block Kit button reference), and
+    # narrow clients clip sooner. A clarify label over this budget renders the prompt in
+    # numbered mode instead: full text in the section body, number-only buttons.
+    _CLARIFY_BUTTON_LABEL_MAX = 24
     # Tighter cap than the approval/clarify dicts: each entry holds the
     # full provider list, and a picker is only live for minutes.
     _MODEL_PICKER_STATE_MAX = 100
@@ -5417,19 +5421,36 @@ class SlackAdapter(BasePlatformAdapter):
             # Escape mrkdwn control chars so the question renders literally;
             # budget against the 3000-char section cap.
             q = (question or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            body = f"❓ {q}"
+            # Button labels over the budget truncate in Slack's UI (~30 chars) — the
+            # user cannot read the option. Long labels switch to numbered mode: full
+            # text in the section body, number-only buttons (clicks resolve by index,
+            # so the display change never alters the recorded answer). The
+            # "(Recommended)" suffix the first choice carries counts toward the budget
+            # and stays visible in the body.
+            labels = [str(choice).strip() or t("platform.slack.clarify.option_n", n=str(idx + 1))
+                      for idx, choice in enumerate(choices)]
+            numbered_mode = any(len(label) > self._CLARIFY_BUTTON_LABEL_MAX for label in labels)
+            if numbered_mode:
+                escaped_labels = [label.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                   for label in labels]
+                option_lines = "\n".join(
+                    t("gateway.clarify.option_line", index=i, choice=escaped)
+                    for i, escaped in enumerate(escaped_labels, start=1))
+                body = f"❓ {q}\n\n{option_lines}"
+                button_texts = [str(i) for i in range(1, len(labels) + 1)]
+            else:
+                body = f"❓ {q}"
+                button_texts = labels
             budget = 3000 - len("...")
             if len(body) > budget:
                 body = body[:budget] + "..."
             # Slack caps an actions block at 5 elements; clarify caps choices at 4 (+ Other) but
             # chunk anyway so larger lists degrade gracefully instead of 400ing.
-            elements = []
-            for idx, choice in enumerate(choices):
-                label = str(choice).strip() or t("platform.slack.clarify.option_n", n=str(idx + 1))
-                elements.append(
-                    self._button(
-                        label[:75], f"hermes_clarify_choice_{idx}",
-                        f"{clarify_id}|{idx}", emoji=True))
+            elements = [
+                self._button(
+                    button_text[:75], f"hermes_clarify_choice_{idx}",
+                    f"{clarify_id}|{idx}", emoji=True)
+                for idx, button_text in enumerate(button_texts)]
             elements.append(
                 self._button(t("platform.slack.clarify.other")[:75], "hermes_clarify_other",
                              f"{clarify_id}|other", emoji=True)
