@@ -137,11 +137,12 @@ gateway:
     link_unparsable: "That looks like a Slack link, but no thread message could be read from it. Link to a message inside a thread: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Message links are resolved on the platform they came from; send this /branch from Slack."
     link_no_session: "No conversation is bound to that thread on this gateway (another bot or profile may own it)."
-    link_not_allowed: "You don't have access to branch that conversation ({name})."
+    link_not_allowed: "You don't have access to branch that conversation."
     link_message_not_found: "The linked message isn't in that conversation's current history."
     link_behind_history: "The linked message is older than that conversation's current history window (earlier turns were compacted into a summary). Branch from a later message, or use plain `/branch` for the full current history."
     link_turn_incomplete: "The linked message's turn hasn't finished yet, so there is nothing stable to branch from. Try again in a moment."
     link_thread_failed: "Couldn't open a new thread for the branch; nothing was changed."
+    link_here_unsupported: "`--here` can't be combined with a message link; a linked branch always opens a new thread."
     branched_from_link_one: "⑂ Branched **{title}** from the linked message ({count} message copied) into a new thread\nThread: {thread}\nOriginal: `{parent}` — untouched\nBranch: `{new}`"
     branched_from_link_many: "⑂ Branched **{title}** from the linked message ({count} messages copied) into a new thread\nThread: {thread}\nOriginal: `{parent}` — untouched\nBranch: `{new}`"
   commands:

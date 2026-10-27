@@ -215,13 +215,13 @@ async def test_branch_link_unknown_thread_and_unparsable_link(store):
 
 @pytest.mark.asyncio
 async def test_branch_link_authority_gates(store):
-    target = _seed_three_turns(store, _thread_source())
+    _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
     # A different channel may not name the target.
     other_channel = _thread_source(channel="C0OTHER", thread="1793000888.000888")
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch {_link()}", source=other_channel))
-    assert reply == t("gateway.branch.link_not_allowed", name=target.session_id)
+    assert reply == t("gateway.branch.link_not_allowed")
     # A DM session keeps the strict /resume rule: same DM, different thread is still blocked.
     dm_thread = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
                               thread_id="1793000555.000555", user_id="U1", scope_id=WORKSPACE)
@@ -233,7 +233,7 @@ async def test_branch_link_authority_gates(store):
                                     thread_id="1793000666.000666", user_id="U1", scope_id=WORKSPACE)
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch {dm_link}", source=from_dm_sibling))
-    assert reply == t("gateway.branch.link_not_allowed", name=dm_entry.session_id)
+    assert reply == t("gateway.branch.link_not_allowed")
     # The DM's own thread may.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch {dm_link} dm branch", source=dm_thread))
@@ -280,3 +280,21 @@ async def test_branch_link_from_other_platform_is_rejected(store):
     runner = _runner(store, None)
     reply = await runner._handle_branch_command(MessageEvent(text=f"/branch {_link()}", source=discord))
     assert reply == t("gateway.branch.link_wrong_platform")
+
+
+@pytest.mark.asyncio
+async def test_branch_link_rejects_here_and_ignores_plain_archives_titles(store):
+    source = _thread_source()
+    _seed_three_turns(store, source)
+    runner = _runner(store, _SlackAdapter())
+    # --here cannot rebind this chat onto another thread's cut clone.
+    reply = await runner._handle_branch_command(
+        MessageEvent(text=f"/branch --here {_link()}", source=_thread_source(thread="1793000888.000888")))
+    assert reply == t("gateway.branch.link_here_unsupported")
+    # A plain title that merely mentions archives/ (no URL) branches normally, title intact.
+    reply = await runner._handle_branch_command(
+        MessageEvent(text="/branch tidy the archives/ folder", source=source))
+    assert "tidy the archives/ folder" in reply
+    assert store.get_or_create_session(
+        _thread_source(thread=_SlackAdapter().thread_id)).session_id != (
+        store.get_or_create_session(source).session_id)
