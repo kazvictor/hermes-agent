@@ -142,4 +142,6 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
         return stay_here, None, text, forced
     cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
     cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
+    # A ``--at`` typed after the link is redundant, not a title word.
+    cleaned = " ".join(token for token in cleaned.split() if token != "--at")
     return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced

@@ -127,6 +127,13 @@ def test_parse_at_flag_forces_link_mode():
     # Flag order does not decide whether --here + link is rejected.
     stay_here, link, title, forced = parse_branch_link_args(f"--at --here {_link()}")
     assert stay_here and link is not None and forced and title == ""
+    stay_here, link, title, forced = parse_branch_link_args(f"--here --at {_link()}")
+    assert stay_here and link is not None and forced and title == ""
+    # A ``--at`` typed after the link is redundant, not a title word.
+    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at my name")
+    assert not stay_here and link is not None and title == "my name" and not forced
+    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at")
+    assert link is not None and title == ""
 
 
 # ── cutoff resolution (pure) ───────────────────────────────────────────────────────
