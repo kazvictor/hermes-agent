@@ -25,9 +25,26 @@ from utils import is_truthy_value
 if TYPE_CHECKING:  # string annotations only; never imported at runtime (cycle)
     from gateway.run import GatewayRunner
     from gateway.run_turn_runner import TurnRunner
+    from gateway.session import SessionSource
 
 # Log-record parity with the origin module.
 logger = logging.getLogger("gateway.run")
+
+
+def _keep_describe_task(st, task) -> None:
+    """Hold a fire-and-forget task reference (asyncio docs: an unreferenced task can be
+    garbage-collected mid-run) on the per-turn progress state, and log late failures."""
+    tasks = getattr(st, "_describe_tasks", None)
+    if tasks is None:
+        tasks = st._describe_tasks = set()
+    tasks.add(task)
+
+    def _describe_task_done(done) -> None:
+        tasks.discard(done)
+        if not done.cancelled() and done.exception() is not None:
+            logger.warning("describe rewrite task failed", exc_info=done.exception())
+
+    task.add_done_callback(_describe_task_done)
 
 
 def _append_progress_repeat_count(message: str, occurrences: int) -> str:
@@ -204,7 +221,23 @@ class GatewayTurnProgressMixin:
         ctx.last_tool[0] = tool_name
         msg = self._progress_build_message(tool_name, preview, args)
         if msg is not None:
-            self._progress_emit(msg)
+            self._progress_emit(msg, describe_command=self._describe_gate(tool_name, args))
+
+    def _describe_gate(self, tool_name: str, args) -> Optional[str]:
+        """The command to caption, when the describe layer is on and the command is opaque.
+
+        Returns None for non-terminal tools, short plain commands (their own caption), and
+        consecutive repeats — the emit-side dedup already collapses those.
+        """
+        from gateway.run_turn_progress_describe import should_describe
+        ctx = self._ctx
+        if not getattr(ctx, "_progress_describe_enabled", False) or tool_name != "terminal":
+            return None
+        command = args.get("command") if isinstance(args, dict) else None
+        if not isinstance(command, str) or not should_describe(command):
+            return None
+        logger.debug("caption armed for %.60s", command)
+        return command
 
     def _progress_subagent_notice(self, preview, kwargs: dict) -> None:
         """Only terminal failure statuses render (same notice rail as credit warnings)."""
@@ -326,9 +359,13 @@ class GatewayTurnProgressMixin:
             return t("gateway.progress.tool_preview", emoji=emoji, tool=tool_name, preview=preview)
         return f"{emoji} {verb}" if verb_drops_preview(tool_name) else f"{emoji} {verb}{tool_verb_connector(tool_name)}{preview}"
 
-    def _progress_emit(self, msg: str) -> None:
+    def _progress_emit(self, msg: str, describe_command: Optional[str] = None) -> None:
         """Dedup consecutive identical lines (execute_code boilerplate), then route to the native
-        stream bubble when the consumer accepts tool progress, else the progress queue."""
+        stream bubble when the consumer accepts tool progress, else the progress queue.
+
+        ``describe_command`` (the LLM-describe layer) rides along as a ``("__describe__", line,
+        command)`` tuple only on the FIRST emission of a line: repeats hit the dedup path above
+        and stay plain, so identical poll iterations collapse without extra model calls."""
         ctx = self._ctx
         sc = self._stream_consumer()
         native = sc is not None and getattr(sc, "accepts_tool_progress", False)
@@ -343,7 +380,8 @@ class GatewayTurnProgressMixin:
         if native:
             sc.on_tool_progress(msg)
         else:
-            ctx.progress_queue.put(msg)
+            ctx.progress_queue.put(("__describe__", msg, describe_command)
+                                    if describe_command else msg)
 
     # ── Slack-native task cards (progress-queue drain) ──────────────────────────────────────
 
@@ -664,17 +702,34 @@ class GatewayTurnProgressMixin:
     def _reset_progress_bubble(self, st) -> None:
         """Content bubble landed — close the tool-progress bubble so the next tool starts fresh
         below it; else tool edits hit the ORIGINAL message above (out of order)."""
+        # Freeze the closed message first: an in-flight caption (describe rewrite) can still
+        # land there seconds later; the live list is about to be reused for the next bubble.
+        if st.progress_msg_id and st.progress_lines:
+            stash = getattr(st, "superseded_bubbles", None)
+            if stash is None:
+                stash = st.superseded_bubbles = []
+            stash.append((st.progress_msg_id, list(st.progress_lines)))
+            del stash[:-8]  # bounded: a turn produces a handful of bubbles
         st.progress_msg_id, st.progress_lines = None, []
         self._ctx.last_progress_msg[0], self._ctx.repeat_count[0] = None, 0
 
     def _progress_absorb(self, st, raw) -> Any:
         """Fold a queue item into the bubble buffer; returns the line to render this tick."""
+        # Describe-layer tuple: the line is its middle slot; the caption rewrite is scheduled
+        # by the bubble loop (cancel drains render the mechanical line only).
+        if isinstance(raw, tuple) and len(raw) == 3 and raw[0] == "__describe__":
+            raw = raw[1]
         if isinstance(raw, tuple) and len(raw) == 3 and raw[0] == "__dedup__":
             _, base_msg, count = raw
             if not st.progress_lines:
                 return base_msg
-            st.progress_lines[-1] = _append_progress_repeat_count(base_msg, count + 1)
-            return st.progress_lines[-1]
+            # A caption line (💡 …) rides BELOW its command; the repeat marker belongs on the
+            # command, not the annotation.
+            idx = len(st.progress_lines) - 1
+            while idx > 0 and str(st.progress_lines[idx]).startswith("💡"):
+                idx -= 1
+            st.progress_lines[idx] = _append_progress_repeat_count(base_msg, count + 1)
+            return st.progress_lines[idx]
         st.progress_lines.append(raw)
         return raw
 
@@ -682,6 +737,89 @@ class GatewayTurnProgressMixin:
         if st.can_edit and st.progress_lines and st.progress_msg_id:
             with suppress(Exception):
                 await self._edit_progress_message(st, st.progress_msg_id, self._progress_text(st.progress_lines))
+
+    def _schedule_describe_rewrite(self, st, command: str, mechanical_line: str) -> None:
+        """Caption ``command`` with the aux model and rewrite its bubble line in place.
+
+        Fire-and-forget on the loop (same event loop as the bubble drain — no cross-thread
+        races): the caption lands via one best-effort edit; a rolled/reset/deduped bubble
+        leaves the mechanical line standing. Failure is silent by design.
+        """
+        ctx = self._ctx
+
+        async def _rewrite() -> None:
+            try:
+                from gateway.run_turn_progress_describe import caption_line, describe_command
+                caption = await describe_command(command)
+                if not caption:
+                    logger.info("caption rewrite: provider returned nothing for %.60s", command)
+                    return
+                if not ctx._run_still_current():
+                    logger.debug("caption rewrite: run no longer current; dropped %r", caption)
+                    return
+                try:
+                    index = st.progress_lines.index(mechanical_line)
+                except ValueError:
+                    index = None
+                if index is not None:
+                    # Annotate, never replace: the command preview is the ground truth; the caption
+                    # lands as its own line directly below.
+                    st.progress_lines[index:index + 1] = [mechanical_line, caption_line(caption)]
+                    lines, msg_id = st.progress_lines, st.progress_msg_id
+                else:
+                    # The bubble this line lived in was closed by a later content bubble; edit the
+                    # frozen message so the annotation still lands in the thread.
+                    lines = msg_id = None
+                    for dead_id, dead_lines in reversed(getattr(st, "superseded_bubbles", None) or []):
+                        if mechanical_line in dead_lines:
+                            i = dead_lines.index(mechanical_line)
+                            dead_lines[i:i + 1] = [mechanical_line, caption_line(caption)]
+                            lines, msg_id = dead_lines, dead_id
+                            break
+                    if msg_id is None:
+                        logger.debug("caption rewrite: line gone everywhere; dropped %r", caption)
+                        return
+                if not (getattr(st, "can_edit", False) and lines and msg_id):
+                    logger.debug("caption rewrite: bubble not editable (lines=%d, msg_id=%r)",
+                                 len(lines or []), msg_id)
+                    return
+                try:
+                    result = await self._edit_progress_message(st, msg_id, self._progress_text(lines))
+                    if getattr(result, "success", True) is False:
+                        logger.info("caption rewrite: edit failed: %s", getattr(result, "error", result))
+                    else:
+                        logger.debug("caption applied: %r", caption)
+                except Exception:
+                    # best-effort boundary: a failed platform edit must never break the drain loop
+                    logger.info("caption rewrite: edit raised", exc_info=True)
+            except Exception:
+                # describe is cosmetic: any failure leaves the mechanical line standing
+                logger.info("caption rewrite skipped", exc_info=True)
+
+        _keep_describe_task(st, asyncio.create_task(_rewrite()))
+
+    def _thread_metadata_for_progress(
+        self, source: SessionSource, event_message_id: Optional[str], _progress_thread_id: Any,
+        _relay_prospective_thread_id: Optional[str],
+    ) -> Optional[dict[str, Any]]:
+        """Thread metadata for a progress-lane send; relay Discord auto-thread lane falls back to the reply anchor.
+
+        Moved here from ``run_turn.py`` (a progress-lane helper belongs with the progress
+        mixin). The connector will auto-thread on the reply anchor (thread is born on its
+        FIRST send), so carrying it routes progress / status bubbles into the same thread
+        as the final reply."""
+        if not _progress_thread_id:
+            metadata = None
+        elif _progress_thread_id == source.thread_id:
+            metadata = self._thread_metadata_for_source(source, event_message_id)
+        else:
+            metadata = self._thread_metadata_for_target(
+                source.platform, source.chat_id, _progress_thread_id,
+                chat_type=getattr(source, "chat_type", None), reply_to_message_id=event_message_id,
+            )
+        if metadata is None and _relay_prospective_thread_id:
+            metadata = {"reply_to_message_id": event_message_id}
+        return metadata
 
     async def _drain_progress_on_cancel(self, st) -> None:
         ctx = self._ctx
@@ -765,7 +903,13 @@ class GatewayTurnProgressMixin:
                 if self._is_reset_marker(raw):
                     self._reset_progress_bubble(st)
                     continue
+                describe_cmd = None
+                if isinstance(raw, tuple) and len(raw) == 3 and raw[0] == "__describe__":
+                    _, msg, describe_cmd = raw
+                    raw = msg
                 msg = self._progress_absorb(st, raw)
+                if describe_cmd:
+                    self._schedule_describe_rewrite(st, describe_cmd, msg)
                 if not await self._roll_progress_overflow_if_needed(st):
                     # Throttle edits: batch rapid tool updates into fewer API calls (grammY pattern:
                     # proactively rate-limit rather than react to 429s). Loop back to drain further
