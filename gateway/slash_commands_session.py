@@ -1038,6 +1038,12 @@ class GatewaySessionCommandsMixin:
         if link_target is None and link_forced:
             # ``--at`` was given but nothing after it reads as a Slack thread permalink
             # (non-Slack URL, channel-root permalink, or nothing at all).
+        # Unparsable in three shapes: an explicit ``--at`` with no readable permalink in the
+        # rest, a bare link that looks like a Slack one but does not parse (usually a
+        # channel-root permalink without thread_ts), and --here combined with a link. Failing
+        # loudly beats branching with a URL as the title; the http guard keeps a plain title
+        # that merely mentions "archives/" out of the way.
+        if link_target is None and (link_forced or ("archives/" in args and "http" in args)):
             return t("gateway.branch.link_unparsable")
         if link_target is None and "archives/" in args and "http" in args:
             # A bare Slack link with no --at: not interpreted (titles stay titles), but the

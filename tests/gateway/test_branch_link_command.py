@@ -113,6 +113,8 @@ def test_parse_rejects_non_thread_links_and_plain_text():
 def test_parse_branch_link_args_extracts_flag_link_and_title():
     stay_here, link, title, forced = parse_branch_link_args(f"--here --at {_link()} alternate path")
     assert stay_here and link is not None and title == "alternate path" and forced
+    stay_here, link, title, forced = parse_branch_link_args(f"--here {_link()} alternate path")
+    assert stay_here and link is not None and title == "alternate path" and not forced
     # A title that is not a link keeps the legacy plain-branch shape.
     stay_here, link, title, forced = parse_branch_link_args("side quest")
     assert not stay_here and link is None and title == "side quest" and not forced
@@ -120,6 +122,7 @@ def test_parse_branch_link_args_extracts_flag_link_and_title():
 
 def test_parse_at_flag_forces_link_mode():
     # --at is the only link form: the rest must carry a permalink, title survives.
+    # Explicit form: the rest must carry a permalink; the title survives without sniffing.
     stay_here, link, title, forced = parse_branch_link_args(f"--at {_link()} alternate path")
     assert not stay_here and link is not None and title == "alternate path" and forced
     # --at with nothing readable after it: forced, no link, no branch.
@@ -379,6 +382,12 @@ async def test_branch_at_flag_flows_and_fails_loudly(store):
     adapter = _SlackAdapter()
     runner = _runner(store, adapter)
     # The flag form carries the branch point explicitly; same-thread rule satisfied.
+async def test_branch_at_flag_flows_and_fails_loudly(store):
+    target = _seed_three_turns(store, _thread_source())
+    invoking = _thread_source(thread="1793000888.000888")
+    adapter = _SlackAdapter()
+    runner = _runner(store, adapter)
+    # The explicit form behaves exactly like the pasted-link sugar.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {_link()} explicit path", source=invoking))
     assert adapter.calls == [(CHANNEL, "explicit path")]

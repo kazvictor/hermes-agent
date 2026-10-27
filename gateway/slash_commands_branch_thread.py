@@ -125,6 +125,13 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
     the text is just the title, exactly as before this feature. ``--here`` keeps its legacy
     leading-flag handling in either order, and the CLI keeps using :func:`parse_branch_args`
     unchanged."""
+    ``--at`` is the explicit form: whatever follows must carry a Slack thread permalink,
+    with no guessing about whether the text means a title or a link (the same flag the
+    CLI surface proposes for ``--at <message_id>`` in #32105, holding the branch-point slot
+    across surfaces). Without it, a bare permalink still names the session and the cutoff
+    (the natural Slack gesture — paste the link, done), and whatever remains after the link
+    tokens is the optional title. ``--here`` keeps its legacy leading-flag handling in either
+    order, and the CLI keeps using :func:`parse_branch_args` unchanged."""
 
     stay_here, text = parse_branch_args(raw)
     forced = False
@@ -147,4 +154,9 @@ def parse_branch_link_args(raw: str) -> tuple[bool, Optional[SlackLinkTarget], s
     return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), True
     # A ``--at`` typed after the link is redundant, not a title word.
     cleaned = " ".join(token for token in cleaned.split() if token != "--at")
+    link = parse_slack_archive_link(text)
+    if link is None:
+        return stay_here, None, text, forced
+    cleaned = re.sub(r"<[^<>]*archives/[A-Z0-9]+/p\d+[^<>]*>", " ", text)  # the mrkdwn autolink…
+    cleaned = re.sub(r"https?://\S+", " ", cleaned)                        # …and any bare URL left over
     return stay_here, link, re.sub(r"\s+", " ", cleaned).strip(), forced
