@@ -10,6 +10,7 @@ Exception: ``display.streaming`` is CLI-only; gateway streaming follows the top-
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 # Settings configurable per-platform; other display settings are CLI-only.
@@ -32,6 +33,10 @@ _GLOBAL_DEFAULTS: dict[str, Any] = {
     # Working-state text on text-rendering indicators (Slack assistant status): "full"/true = verb +
     # argument preview, "verb" = verb only (keeps paths out of shared channels), "off"/false = static.
     "live_status": "full",
+    # LLM describe layer for terminal progress previews: an aux model rewrites opaque command
+    # lines (sleep-poll chains, multi-line scripts) as ≤12-word captions inside the editable
+    # progress bubble. Opt-in; mechanical sleep-badge previews cover the no-model path.
+    "progress_describe": False,
 }
 
 # Tiers: HIGH = editing, personal/team use; MEDIUM = editing but customer-facing;
@@ -195,6 +200,7 @@ _NORMALISERS: dict[str, Any] = {
     "tool_progress_grouping": _norm_choice(("accumulate", "separate")),
     "reasoning_style": _norm_choice(("code", "blockquote", "subtext")),
     "tool_preview_length": _norm_int,
+    "progress_describe": _norm_bool,
 }
 
 
@@ -228,3 +234,32 @@ def local_display_config(display: Any) -> dict[str, Any]:
             value = {**display[key], **value}
         display[key] = _normalise(key, value)
     return display
+
+
+@dataclasses.dataclass
+class RunAgentDisplay:
+    """Per-turn display / progress settings resolved by the gateway's display-settings pass.
+
+    Lives here, beside the resolver, so the ``gateway/run.py`` facade stays lean;
+    ``GatewayRunner._RunAgentDisplay`` aliases it for the turn mixins' existing access path.
+    """
+
+    user_config: Any = None
+    platform_key: Any = None
+    enabled_toolsets: Any = None
+    disabled_toolsets: Any = None
+    resolve_display_setting: Any = None
+    progress_mode: Any = None
+    progress_grouping: Any = None
+    _progress_describe_enabled: Any = None
+    _display_surface_mode: Any = None
+    tool_progress_enabled: Any = None
+    _live_status_mode: Any = None
+    _live_status_adapter: Any = None
+    log_mode_enabled: Any = None
+    log_queue: Any = None
+    interim_assistant_messages_enabled: Any = None
+    _thinking_enabled: Any = None
+    _native_slack_task_cards: Any = None
+    needs_progress_queue: Any = None
+    _generic_status_phrase: Any = None

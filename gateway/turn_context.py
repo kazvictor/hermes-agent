@@ -27,6 +27,7 @@ class TurnContext:
     _thinking_enabled: bool = False
     progress_mode: str = "off"
     progress_grouping: str = "grouped"
+    _progress_describe_enabled: bool = False  # aux-LLM captions for opaque terminal previews
     tool_progress_enabled: bool = False
     progress_queue: Any = None
     log_queue: Any = None

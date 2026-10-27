@@ -1036,6 +1036,10 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
         )
         # "accumulate" (edit one bubble) or "separate" (one msg per tool)
         progress_grouping = resolve_display_setting(user_config, platform_key, "tool_progress_grouping") or "accumulate"
+        # LLM describe layer for terminal previews (aux task "progress_describe")
+        _progress_describe_enabled = bool(
+            resolve_display_setting(user_config, platform_key, "progress_describe", False)
+        ) and progress_mode not in {"off", "log"}
         _generic_status_recent: list[str] = []
         _generic_status_catalog = resolve_status_phrase_catalog(user_config, platform_key)
 
@@ -1111,6 +1115,7 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
             user_config=user_config, platform_key=platform_key, enabled_toolsets=enabled_toolsets,
             disabled_toolsets=disabled_toolsets, resolve_display_setting=resolve_display_setting,
             progress_mode=progress_mode, progress_grouping=progress_grouping,
+            _progress_describe_enabled=_progress_describe_enabled,
             _display_surface_mode=_display_surface_mode,
             tool_progress_enabled=tool_progress_enabled, _live_status_mode=_live_status_mode,
             _live_status_adapter=_live_status_adapter, log_mode_enabled=log_mode_enabled,
@@ -1124,7 +1129,8 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
     # _RunAgentDisplay fields copied verbatim onto the TurnContext.
     _DISPLAY_TO_TURN_CTX = (
         "_live_status_adapter", "_live_status_mode", "_thinking_enabled", "progress_mode",
-        "progress_grouping", "tool_progress_enabled", "log_queue", "resolve_display_setting",
+        "progress_grouping", "_progress_describe_enabled", "tool_progress_enabled", "log_queue",
+        "resolve_display_setting",
         "user_config", "enabled_toolsets", "disabled_toolsets", "log_mode_enabled",
         "interim_assistant_messages_enabled", "needs_progress_queue", "_native_slack_task_cards",
     )
@@ -1171,27 +1177,6 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
         turn_ctx.native_tool_start_callback = turn_runner.combined_tool_start_callback
         turn_ctx.native_tool_complete_callback = turn_runner.native_tool_complete_callback
         return turn_ctx, turn_runner, _cleanup_adapter
-
-    def _thread_metadata_for_progress(
-        self, source: SessionSource, event_message_id: Optional[str], _progress_thread_id: Any,
-        _relay_prospective_thread_id: Optional[str],
-    ) -> Optional[dict[str, Any]]:
-        """Thread metadata for a progress-lane send; relay Discord auto-thread lane falls back to the reply anchor.
-
-        The connector will auto-thread on the reply anchor (thread is born on its FIRST send), so
-        carrying it routes progress / status bubbles into the same thread as the final reply."""
-        if not _progress_thread_id:
-            metadata = None
-        elif _progress_thread_id == source.thread_id:
-            metadata = self._thread_metadata_for_source(source, event_message_id)
-        else:
-            metadata = self._thread_metadata_for_target(
-                source.platform, source.chat_id, _progress_thread_id,
-                chat_type=getattr(source, "chat_type", None), reply_to_message_id=event_message_id,
-            )
-        if metadata is None and _relay_prospective_thread_id:
-            metadata = {"reply_to_message_id": event_message_id}
-        return metadata
 
     def _run_agent_progress_threading(
         self, source: SessionSource, event_message_id: Optional[str], _native_slack_task_cards: bool
