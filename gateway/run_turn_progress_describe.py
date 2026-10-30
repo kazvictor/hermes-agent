@@ -93,13 +93,12 @@ async def describe_command(command: str, *, main_runtime: dict | None = None) ->
 
     try:
         raw = await asyncio.wait_for(asyncio.to_thread(_call), timeout=_DESCRIBE_TIMEOUT_S)
-    except Exception:  # timeout, provider error, no provider configured
+    except Exception as exc:  # timeout, provider error, no provider configured
         # INFO, not DEBUG: a caption that never lands is invisible otherwise — the mechanical
         # line just stands, and the operator cannot tell the layer is on but failing.
-        logger.info("progress caption unavailable (%.60s...)", command, exc_info=True)
+        logger.info("progress caption unavailable (%.60s...): %s", command, exc)
         return None
-    caption = re.sub(r"\s+", " ", raw or "").strip()
-    caption = re.sub(r"^[\"'](.*)[\"']$", r"\1", caption).strip()  # models love quoting their answer
+    caption = re.sub(r"\s+", " ", raw or "").strip().strip('"\''"'"'').strip()
     if not caption or len(caption) > 120:
         # Temporary observability: the provider chain returned something unusable.
         logger.info("progress caption rejected (%.60s...): %r", command, (raw or "")[:100])

@@ -1188,6 +1188,27 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
         turn_ctx.native_tool_complete_callback = turn_runner.native_tool_complete_callback
         return turn_ctx, turn_runner, _cleanup_adapter
 
+    def _thread_metadata_for_progress(
+        self, source: SessionSource, event_message_id: Optional[str], _progress_thread_id: Any,
+        _relay_prospective_thread_id: Optional[str],
+    ) -> Optional[dict[str, Any]]:
+        """Thread metadata for a progress-lane send; relay Discord auto-thread lane falls back to the reply anchor.
+
+        The connector will auto-thread on the reply anchor (thread is born on its FIRST send), so
+        carrying it routes progress / status bubbles into the same thread as the final reply."""
+        if not _progress_thread_id:
+            metadata = None
+        elif _progress_thread_id == source.thread_id:
+            metadata = self._thread_metadata_for_source(source, event_message_id)
+        else:
+            metadata = self._thread_metadata_for_target(
+                source.platform, source.chat_id, _progress_thread_id,
+                chat_type=getattr(source, "chat_type", None), reply_to_message_id=event_message_id,
+            )
+        if metadata is None and _relay_prospective_thread_id:
+            metadata = {"reply_to_message_id": event_message_id}
+        return metadata
+
     def _run_agent_progress_threading(
         self, source: SessionSource, event_message_id: Optional[str], _native_slack_task_cards: bool
     ) -> tuple[Optional[dict], Optional[str], Optional[dict]]:

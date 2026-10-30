@@ -134,8 +134,6 @@ gateway:
     link_unparsable: "Dit lyk na 'n Slack-skakel, maar daar kon geen draadboodskap uit gelees word nie. Skakel na 'n boodskap binne 'n draad: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Boodskapskakels word op die platform waarvandaan hulle kom, opgelos; stuur hierdie /branch vanaf Slack."
     link_wrong_thread: "Daardie boodskap is uit 'n ander thread — /branch --at sny die gesprek waarin jy dit laat loop, so roep dit binne die thread waarheen die skakel wys."
-    link_no_session: "Geen gesprek is aan daardie draad op hierdie gateway verbind nie ('n ander bot of profiel mag dit besit)."
-    link_not_allowed: "Jy het nie toegang om daardie gesprek te vertak nie."
     link_message_not_found: "Die geskakelde boodskap is nie in daardie gesprek se huidige geskiedenis nie."
     link_behind_history: "Die geskakelde boodskap is ouer as daardie gesprek se huidige geskiedenisvenster (vroeëre beurte is in 'n opsomming saamgepers). Vertak vanaf 'n latere boodskap, of gebruik gewone `/branch` vir die volle huidige geskiedenis."
     link_turn_incomplete: "Die beurt van die geskakelde boodskap is nog nie klaar nie, dus is daar nog niks stabiel om van te vertak nie. Probeer weer oomblik."

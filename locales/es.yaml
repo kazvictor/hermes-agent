@@ -134,8 +134,6 @@ gateway:
     link_unparsable: "Eso parece un enlace de Slack, pero no se pudo leer ningún mensaje de hilo de él. Enlaza a un mensaje dentro de un hilo: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Los enlaces a mensajes se resuelven en la plataforma de la que proceden; envía este /branch desde Slack."
     link_wrong_thread: "Ese mensaje es de otro hilo — /branch --at corta la conversación en la que lo ejecutas, así que invócalo dentro del hilo al que apunta el enlace."
-    link_no_session: "Ninguna conversación está vinculada a ese hilo en esta pasarela (puede que la tenga otro bot o perfil)."
-    link_not_allowed: "No tienes acceso para ramificar esa conversación."
     link_message_not_found: "El mensaje enlazado no está en el historial actual de esa conversación."
     link_behind_history: "El mensaje enlazado es anterior a la ventana de historial actual de esa conversación (los turnos previos se comprimieron en un resumen). Ramifica desde un mensaje posterior, o usa `/branch` sin enlace para el historial actual completo."
     link_turn_incomplete: "El turno del mensaje enlazado aún no ha terminado, así que todavía no hay nada estable de lo que ramificar. Inténtalo de nuevo en un momento."

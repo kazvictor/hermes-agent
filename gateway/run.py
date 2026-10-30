@@ -43,8 +43,7 @@ from agent.interrupt_compat import request_hard_interrupt
 from agent.message_metadata import ABSORBED_MESSAGE_UIDS, MESSAGE_UID, copy_identity_fields
 from agent.turn_context import compression_made_progress
 from agent.session_activity import ActivityProvenance, AwakeIdleMeter
-from hermes_cli.config import _is_ssh_remote_tilde_cwd, cfg_get, config_exists
-from gateway.display_config import RunAgentDisplay
+from hermes_cli.config import _is_ssh_remote_tilde_cwd, cfg_get
 from hermes_cli.fallback_config import pre_agent_fallback_notice
 from gateway.turn_executor import _UnboundedThreadExecutor
 
@@ -4255,9 +4254,28 @@ class GatewayRunner(
                 explicit_profile or "(no profile)", exc_info=True)
             return get_hermes_home()
 
-    # Moved to gateway.display_config.RunAgentDisplay (the display-settings carrier belongs
-    # with the resolver); the alias keeps the GatewayRunner._RunAgentDisplay access path.
-    _RunAgentDisplay = RunAgentDisplay
+    @dataclasses.dataclass
+    class _RunAgentDisplay:
+        """Per-turn display / progress settings resolved by ``_run_agent_display_settings``."""
+        user_config: Any = None
+        platform_key: Any = None
+        enabled_toolsets: Any = None
+        disabled_toolsets: Any = None
+        resolve_display_setting: Any = None
+        progress_mode: Any = None
+        progress_grouping: Any = None
+        _progress_describe_enabled: Any = None
+        _display_surface_mode: Any = None
+        tool_progress_enabled: Any = None
+        _live_status_mode: Any = None
+        _live_status_adapter: Any = None
+        log_mode_enabled: Any = None
+        log_queue: Any = None
+        interim_assistant_messages_enabled: Any = None
+        _thinking_enabled: Any = None
+        _native_slack_task_cards: Any = None
+        needs_progress_queue: Any = None
+        _generic_status_phrase: Any = None
 
     @dataclasses.dataclass
     class _RunAgentWorker:

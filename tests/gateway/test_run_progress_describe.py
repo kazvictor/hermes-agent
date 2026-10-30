@@ -1,14 +1,12 @@
-"""The LLM describe layer for terminal progress previews, and its bubble-lane rewrite.
+"""Terminal progress previews: sleep-aware mechanical lines + the LLM describe layer.
 
-``gateway/run_turn_progress_describe.py`` gates, caches and fails soft; the bubble lane
-(``gateway/run_turn_progress.py``) annotates the caption below the command line — the
-command preview stays the ground truth — and late captions still land on superseded
-bubbles. Mechanical preview-line tests live in ``tests/gateway/test_terminal_preview.py``.
+The mechanical line (``agent/display.py``) must spend the preview budget on the work,
+not on a leading ``sleep``; the describe layer (``gateway/run_turn_progress_describe.py``)
+gates, caches and fails soft; the bubble lane rewrites the captioned line in place.
 """
 
 import asyncio
 import sys
-import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,9 +16,57 @@ _repo = str(Path(__file__).resolve().parents[2])
 if _repo not in sys.path:
     sys.path.insert(0, _repo)
 
+from agent.display import terminal_preview_line, terminal_wait_badge
 from gateway import run_turn_progress_describe as describe_mod
 from gateway.run_turn_progress import GatewayTurnProgressMixin
-from tests.waiting import async_wait_until
+
+
+class TestTerminalPreviewLine:
+    def test_sleep_chain_shows_work_not_wait(self):
+        cmd = 'sleep 400; grep -c "done: cards" /tmp/lsh-fanout-run.log'
+        out = terminal_preview_line(cmd, cap=40)
+        assert out.startswith("⏳ ~7m → ")
+        assert "grep -c" in out  # the budget went to the work
+        assert "sleep" not in out.split("→", 1)[1]
+
+    def test_pure_sleep_is_a_wait_line(self):
+        assert terminal_preview_line("sleep 240", cap=40) == "⏳ waiting ~4m"
+
+    def test_short_plain_command_passthrough(self):
+        assert terminal_preview_line("gh pr view 278", cap=40) == "gh pr view 278"
+
+    def test_long_plain_command_head_truncated(self):
+        out = terminal_preview_line("git log --oneline " + "x" * 60, cap=40)
+        assert len(out) == 40 and out.endswith("...")
+
+    def test_multiline_first_line_plus_count(self):
+        out = terminal_preview_line("echo start\npython build.py\necho done", cap=40)
+        assert out == "echo start ...+2 lines"
+
+    def test_chain_previews_last_non_sleep_segment(self):
+        out = terminal_preview_line("sleep 30 && npm test && npm run build", cap=60)
+        assert "npm run build" in out
+
+    def test_quoted_sql_semicolon_is_not_a_chain_split(self):
+        cmd = ('echo "=== ids ==="; sqlite3 "file:db" '
+               '"SELECT id FROM tasks ORDER BY id;" 2>&1 | head -55')
+        out = terminal_preview_line(cmd, cap=64)
+        # The in-SQL semicolon must not orphan the tail: the preview leads with the
+        # command, not with the post-quote redirect (`" 2>&1 | head -55`).
+        assert out.startswith("sqlite3") and len(out) <= 64
+
+    def test_quoted_sql_concat_operator_is_not_a_chain_split(self):
+        cmd = 'psql -c "SELECT a || b FROM t;"'
+        assert terminal_preview_line(cmd, cap=64) == cmd
+
+    def test_wait_badge_survives_quoted_semicolons(self):
+        assert terminal_wait_badge('sleep 30; sqlite3 "db" "SELECT 1;"') == "⏳ 30s → "
+
+    def test_wait_badge_sums_all_sleeps(self):
+        assert terminal_wait_badge("sleep 60 && run.sh && sleep 60") == "⏳ ~2m → "
+
+    def test_wait_badge_ignores_short_waits(self):
+        assert terminal_wait_badge("run.sh") == ""
 
 
 class TestDescribeLayer:
@@ -61,20 +107,16 @@ class TestDescribeLayer:
 
     @pytest.mark.asyncio
     async def test_describe_timeout_returns_none(self, monkeypatch):
-        never_set = threading.Event()
+        import time as _time
 
         monkeypatch.setattr(describe_mod, "_DESCRIBE_TIMEOUT_S", 0.05)
 
         def slow(**kw):
-            # a stand-in that must hang: blocks until the test's teardown sets the Event
-            never_set.wait(0.5)
+            _time.sleep(0.5)
             return "never"
 
         monkeypatch.setattr("agent.oneshot.run_oneshot", slow)
-        try:
-            assert await describe_mod.describe_command("sleep 400; x") is None
-        finally:
-            never_set.set()
+        assert await describe_mod.describe_command("sleep 400; x") is None
 
     def test_described_line_is_an_annotation(self):
         # The command preview stays the ground truth; the caption rides below as prose.
@@ -120,7 +162,7 @@ class TestBubbleLaneIntegration:
         monkeypatch.setattr("gateway.run_turn_progress_describe.describe_command", fake_describe)
         st = SimpleNamespace(progress_lines=["mech line"], progress_msg_id="42", can_edit=True)
         runner._schedule_describe_rewrite(st, "sleep 400; grep x", "mech line")
-        await async_wait_until(lambda: edits, timeout=1, what="the caption edit")
+        await asyncio.sleep(0.05)  # fire-and-forget task lands
         # Command stays (ground truth), caption lands as its own line below it.
         assert st.progress_lines == ["mech line", "💡 counting finished cards"]
         assert edits and edits[0][0] == "42"
@@ -147,7 +189,7 @@ class TestBubbleLaneIntegration:
         monkeypatch.setattr(runner, "_edit_progress_message", fake_edit)
 
         async def fake_describe(command, **kw):
-            await asyncio.sleep(0)  # yield once: the frozen-bubble path reads state after this
+            await asyncio.sleep(0.02)
             return "checking gateway start time"
 
         monkeypatch.setattr("gateway.run_turn_progress_describe.describe_command", fake_describe)
@@ -155,7 +197,7 @@ class TestBubbleLaneIntegration:
         st = SimpleNamespace(progress_lines=[], progress_msg_id=None, can_edit=True,
                              superseded_bubbles=[("msg-dead-1", dead_lines)])
         runner._schedule_describe_rewrite(st, "ps -o pid,lstart", "mech line")
-        await async_wait_until(lambda: edits, timeout=1, what="the caption edit on the superseded bubble")
+        await asyncio.sleep(0.08)
         assert dead_lines == ["mech line", "💡 checking gateway start time", "later command line"]
         assert edits and edits[0][0] == "msg-dead-1"
         assert "later command line" in edits[0][1]  # clobber-safe: later lines preserved
@@ -178,8 +220,6 @@ class TestBubbleLaneIntegration:
         monkeypatch.setattr("gateway.run_turn_progress_describe.describe_command", fake_describe)
         st = SimpleNamespace(progress_lines=["a different line"], progress_msg_id="42", can_edit=True)
         runner._schedule_describe_rewrite(st, "sleep 400; grep x", "mech line")
-        # wait for the scheduled task to finish — it must do nothing observable
-        await async_wait_until(lambda: not getattr(st, "_describe_tasks", None), timeout=1,
-                               what="the describe task to finish")
+        await asyncio.sleep(0.05)
         assert st.progress_lines == ["a different line"]  # rolled/deduped meanwhile
         assert not edited

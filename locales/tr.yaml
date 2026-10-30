@@ -134,8 +134,6 @@ gateway:
     link_unparsable: "Bu bir Slack bağlantısına benziyor, ancak içinden bir konu mesajı okunamadı. Bir konunun içindeki mesaja bağlantı verin: `…/archives/C…/p…?thread_ts=…`"
     link_wrong_platform: "Mesaj bağlantıları geldikleri platformda çözümlenir; bu /branch komutunu Slack'ten gönderin."
     link_wrong_thread: "O mesaj başka bir konudan — /branch --at komutu yürüttüğün sohbeti keser, o yüzden bağlantının işaret ettiği konunun içinde çağırın."
-    link_no_session: "Bu gateway üzerinde o konuya bağlı bir konuşma yok (başka bir bot veya profil sahibi olabilir)."
-    link_not_allowed: "O konuşmayı dallandırma erişiminiz yok."
     link_message_not_found: "Bağlantı verilen mesaj o konuşmanın güncel geçmişinde değil."
     link_behind_history: "Bağlantı verilen mesaj, o konuşmanın güncel geçmiş penceresinden daha eski (önceki turlar bir özete sıkıştırıldı). Daha geç bir mesajdan dallanın ya da güncel geçmişin tamamı için düz `/branch` kullanın."
     link_turn_incomplete: "Bağlantı verilen mesajın turu henüz bitmedi, bu yüzden dallanacak kararlı bir şey henüz yok. Birazdan tekrar deneyin."

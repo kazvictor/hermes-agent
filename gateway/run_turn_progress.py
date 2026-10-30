@@ -25,26 +25,9 @@ from utils import is_truthy_value
 if TYPE_CHECKING:  # string annotations only; never imported at runtime (cycle)
     from gateway.run import GatewayRunner
     from gateway.run_turn_runner import TurnRunner
-    from gateway.session import SessionSource
 
 # Log-record parity with the origin module.
 logger = logging.getLogger("gateway.run")
-
-
-def _keep_describe_task(st, task) -> None:
-    """Hold a fire-and-forget task reference (asyncio docs: an unreferenced task can be
-    garbage-collected mid-run) on the per-turn progress state, and log late failures."""
-    tasks = getattr(st, "_describe_tasks", None)
-    if tasks is None:
-        tasks = st._describe_tasks = set()
-    tasks.add(task)
-
-    def _describe_task_done(done) -> None:
-        tasks.discard(done)
-        if not done.cancelled() and done.exception() is not None:
-            logger.warning("describe rewrite task failed", exc_info=done.exception())
-
-    task.add_done_callback(_describe_task_done)
 
 
 def _append_progress_repeat_count(message: str, occurrences: int) -> str:
@@ -776,37 +759,12 @@ class GatewayTurnProgressMixin:
                         logger.info("caption rewrite: edit failed: %s", getattr(result, "error", result))
                     else:
                         logger.debug("caption applied: %r", caption)
-                except Exception:
-                    # best-effort boundary: a failed platform edit must never break the drain loop
-                    logger.info("caption rewrite: edit raised", exc_info=True)
-            except Exception:
-                # describe is cosmetic: any failure leaves the mechanical line standing
-                logger.info("caption rewrite skipped", exc_info=True)
+                except Exception as exc:
+                    logger.info("caption rewrite: edit raised: %s", exc)
+            except Exception as exc:
+                logger.info("caption rewrite skipped: %s", exc)
 
-        _keep_describe_task(st, asyncio.create_task(_rewrite()))
-
-    def _thread_metadata_for_progress(
-        self, source: SessionSource, event_message_id: Optional[str], _progress_thread_id: Any,
-        _relay_prospective_thread_id: Optional[str],
-    ) -> Optional[dict[str, Any]]:
-        """Thread metadata for a progress-lane send; relay Discord auto-thread lane falls back to the reply anchor.
-
-        Moved here from ``run_turn.py`` (a progress-lane helper belongs with the progress
-        mixin). The connector will auto-thread on the reply anchor (thread is born on its
-        FIRST send), so carrying it routes progress / status bubbles into the same thread
-        as the final reply."""
-        if not _progress_thread_id:
-            metadata = None
-        elif _progress_thread_id == source.thread_id:
-            metadata = self._thread_metadata_for_source(source, event_message_id)
-        else:
-            metadata = self._thread_metadata_for_target(
-                source.platform, source.chat_id, _progress_thread_id,
-                chat_type=getattr(source, "chat_type", None), reply_to_message_id=event_message_id,
-            )
-        if metadata is None and _relay_prospective_thread_id:
-            metadata = {"reply_to_message_id": event_message_id}
-        return metadata
+        asyncio.create_task(_rewrite())
 
     async def _drain_progress_on_cancel(self, st) -> None:
         ctx = self._ctx
