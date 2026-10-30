@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 """/branch --at <message link> — clone the session owning a linked Slack thread, cut the transcript at
-=======
-"""/branch <message link> — clone the session owning a linked Slack thread, cut the transcript at
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
 the linked message's turn, and open the clone in a new sibling thread of the linked channel
 (#32105, gateway surface).
 
@@ -74,14 +70,9 @@ def _runner(store, adapter):
     return runner
 
 
-<<<<<<< HEAD
 def _thread_source(channel=CHANNEL, thread: str | None = THREAD, user="U1"):
     return SessionSource(platform=Platform.SLACK, chat_id=channel,
                          chat_type="dm" if str(channel).startswith("D") else "group",
-=======
-def _thread_source(channel=CHANNEL, thread=THREAD, user="U1"):
-    return SessionSource(platform=Platform.SLACK, chat_id=channel, chat_type="group",
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
                          thread_id=thread, user_id=user, user_name="victor", scope_id=WORKSPACE)
 
 
@@ -120,11 +111,8 @@ def test_parse_rejects_non_thread_links_and_plain_text():
 
 
 def test_parse_branch_link_args_extracts_flag_link_and_title():
-<<<<<<< HEAD
     stay_here, link, title, forced = parse_branch_link_args(f"--here --at {_link()} alternate path")
     assert stay_here and link is not None and title == "alternate path" and forced
-    stay_here, link, title, forced = parse_branch_link_args(f"--here {_link()} alternate path")
-    assert stay_here and link is not None and title == "alternate path" and not forced
     # A title that is not a link keeps the legacy plain-branch shape.
     stay_here, link, title, forced = parse_branch_link_args("side quest")
     assert not stay_here and link is None and title == "side quest" and not forced
@@ -132,7 +120,6 @@ def test_parse_branch_link_args_extracts_flag_link_and_title():
 
 def test_parse_at_flag_forces_link_mode():
     # --at is the only link form: the rest must carry a permalink, title survives.
-    # Explicit form: the rest must carry a permalink; the title survives without sniffing.
     stay_here, link, title, forced = parse_branch_link_args(f"--at {_link()} alternate path")
     assert not stay_here and link is not None and title == "alternate path" and forced
     # --at with nothing readable after it: forced, no link, no branch.
@@ -146,18 +133,6 @@ def test_parse_at_flag_forces_link_mode():
     # Without the flag nothing link-shaped is interpreted: a bare permalink is just a title.
     stay_here, link, title, forced = parse_branch_link_args(f"{_link()} my name")
     assert not stay_here and link is None and forced is False and "archives/" in title
-    # A ``--at`` typed after the link is redundant, not a title word.
-    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at my name")
-    assert not stay_here and link is not None and title == "my name" and not forced
-    stay_here, link, title, forced = parse_branch_link_args(f"{_link()} --at")
-    assert link is not None and title == ""
-=======
-    stay_here, link, title = parse_branch_link_args(f"--here {_link()} alternate path")
-    assert stay_here and link is not None and title == "alternate path"
-    # A title that is not a link keeps the legacy plain-branch shape.
-    stay_here, link, title = parse_branch_link_args("side quest")
-    assert not stay_here and link is None and title == "side quest"
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
 
 
 # ── cutoff resolution (pure) ───────────────────────────────────────────────────────
@@ -209,23 +184,14 @@ def test_cutoff_trims_in_flight_tool_tail_to_whole_turns():
 @pytest.mark.asyncio
 async def test_branch_link_cuts_at_linked_message_and_keeps_every_original(store):
     target = _seed_three_turns(store, _thread_source())
-<<<<<<< HEAD
     # Invoke from the linked thread itself: the link only picks the branch point of THIS
     # conversation (the same-thread rule), the clone opens as a new sibling thread.
     invoking = _thread_source()
-=======
-    # Invoke from a DIFFERENT thread of the SAME channel: the feature's entry point.
-    invoking = _thread_source(thread="1793000888.000888")
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     adapter = _SlackAdapter()
     runner = _runner(store, adapter)
 
     reply = await runner._handle_branch_command(
-<<<<<<< HEAD
         MessageEvent(text=f"/branch --at {_link()} alternate path", source=invoking))
-=======
-        MessageEvent(text=f"/branch {_link()} alternate path", source=invoking))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
 
     assert adapter.calls == [(CHANNEL, "alternate path")]
     # Original session untouched, in its own thread.
@@ -250,17 +216,11 @@ async def test_branch_link_uses_lineage_title_when_none_given(store):
     _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
     await runner._handle_branch_command(
-<<<<<<< HEAD
         MessageEvent(text=f"/branch --at {_link()}", source=_thread_source()))
-        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread="1793000888.000888")))
-=======
-        MessageEvent(text=f"/branch {_link()}", source=_thread_source(thread="1793000888.000888")))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert runner._session_db is not None  # sanity: the flow completed without raising
 
 
 @pytest.mark.asyncio
-<<<<<<< HEAD
 async def test_branch_link_wrong_thread_and_unparsable_link(store):
     _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter())
@@ -279,74 +239,30 @@ async def test_branch_link_wrong_thread_and_unparsable_link(store):
         MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread=None)))
     assert reply == t("gateway.branch.link_wrong_thread")
     # A channel-root permalink still cannot name a cutoff at all.
-        MessageEvent(text=f"/branch --at {_link(thread='1793000777.000777')}", source=_thread_source()))
-    assert reply == t("gateway.branch.link_no_session")
     channel_root = "https://catio-tech.slack.com/archives/C0LINKED/p1793000023000000"
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {channel_root}", source=_thread_source()))
-=======
-async def test_branch_link_unknown_thread_and_unparsable_link(store):
-    runner = _runner(store, _SlackAdapter())
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch {_link(thread='1793000777.000777')}", source=_thread_source()))
-    assert reply == t("gateway.branch.link_no_session")
-    channel_root = "https://catio-tech.slack.com/archives/C0LINKED/p1793000023000000"
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch {channel_root}", source=_thread_source()))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert reply == t("gateway.branch.link_unparsable")
 
 
 @pytest.mark.asyncio
-<<<<<<< HEAD
 async def test_branch_link_dm_follows_the_same_thread_rule(store):
-async def test_branch_link_authority_gates(store):
-    _seed_three_turns(store, _thread_source())
-=======
-async def test_branch_link_authority_gates(store):
-    target = _seed_three_turns(store, _thread_source())
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     runner = _runner(store, _SlackAdapter())
-    # A different channel may not name the target.
-    other_channel = _thread_source(channel="C0OTHER", thread="1793000888.000888")
-    reply = await runner._handle_branch_command(
-<<<<<<< HEAD
-        MessageEvent(text=f"/branch --at {_link()}", source=other_channel))
-        MessageEvent(text=f"/branch {_link()}", source=other_channel))
-    assert reply == t("gateway.branch.link_not_allowed")
-=======
-        MessageEvent(text=f"/branch {_link()}", source=other_channel))
-    assert reply == t("gateway.branch.link_not_allowed", name=target.session_id)
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
-    # A DM session keeps the strict /resume rule: same DM, different thread is still blocked.
     dm_thread = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
                               thread_id="1793000555.000555", user_id="U1", scope_id=WORKSPACE)
     dm_entry = store.get_or_create_session(dm_thread)
     store._db.append_message(dm_entry.session_id, role="user", content="dm secret",
                              timestamp=1793000011.0, platform_message_id="1793000011.000000")
     dm_link = _link("1793000011.000000", channel="D0DM", thread="1793000555.000555")
-<<<<<<< HEAD
     # A different thread of the same DM may not name it (uniform rule, no DM carve-out).
     from_dm_sibling = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
                                      thread_id="1793000666.000666", user_id="U1", scope_id=WORKSPACE)
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {dm_link}", source=from_dm_sibling))
     assert reply == t("gateway.branch.link_wrong_thread")
-        MessageEvent(text=f"/branch {dm_link}", source=from_dm_sibling))
-    assert reply == t("gateway.branch.link_not_allowed")
     # The DM's own thread may.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {dm_link} dm branch", source=dm_thread))
-=======
-    from_dm_sibling = SessionSource(platform=Platform.SLACK, chat_id="D0DM", chat_type="dm",
-                                    thread_id="1793000666.000666", user_id="U1", scope_id=WORKSPACE)
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch {dm_link}", source=from_dm_sibling))
-    assert reply == t("gateway.branch.link_not_allowed", name=dm_entry.session_id)
-    # The DM's own thread may.
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch {dm_link} dm branch", source=dm_thread))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert "dm branch" in reply
 
 
@@ -358,11 +274,7 @@ async def test_branch_link_behind_history_and_incomplete_turn(store):
                              timestamp=1793000100.2, platform_message_id="1793000100.100000")
     runner = _runner(store, _SlackAdapter())
     reply = await runner._handle_branch_command(
-<<<<<<< HEAD
         MessageEvent(text=f"/branch --at {_link('1792000000.000000')}", source=_thread_source()))
-=======
-        MessageEvent(text=f"/branch {_link('1792000000.000000')}", source=_thread_source()))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert reply == t("gateway.branch.link_behind_history")
     # First and only turn still in flight (ends on a tool row): nothing stable to copy.
     store._db.append_message(entry.session_id, role="assistant", content="",
@@ -370,11 +282,7 @@ async def test_branch_link_behind_history_and_incomplete_turn(store):
     store._db.append_message(entry.session_id, role="tool", content="{}",
                              timestamp=1793000101.5, tool_call_id="c1")
     reply = await runner._handle_branch_command(
-<<<<<<< HEAD
         MessageEvent(text=f"/branch --at {_link('1793000100.100000')}", source=_thread_source()))
-=======
-        MessageEvent(text=f"/branch {_link('1793000100.100000')}", source=_thread_source()))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert reply == t("gateway.branch.link_turn_incomplete")
 
 
@@ -383,12 +291,7 @@ async def test_branch_link_thread_creation_failure_changes_nothing(store):
     target = _seed_three_turns(store, _thread_source())
     runner = _runner(store, _SlackAdapter(fail=True))
     reply = await runner._handle_branch_command(
-<<<<<<< HEAD
         MessageEvent(text=f"/branch --at {_link()}", source=_thread_source()))
-        MessageEvent(text=f"/branch --at {_link()}", source=_thread_source(thread="1793000888.000888")))
-=======
-        MessageEvent(text=f"/branch {_link()}", source=_thread_source(thread="1793000888.000888")))
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
     assert reply == t("gateway.branch.link_thread_failed")
     assert store.get_or_create_session(_thread_source()).session_id == target.session_id
     # No clone row was created.
@@ -401,9 +304,7 @@ async def test_branch_link_from_other_platform_is_rejected(store):
     discord = SessionSource(platform=Platform.DISCORD, chat_id="555", chat_type="group",
                             user_id="U1", scope_id="g1")
     runner = _runner(store, None)
-<<<<<<< HEAD
     reply = await runner._handle_branch_command(MessageEvent(text=f"/branch --at {_link()}", source=discord))
-    reply = await runner._handle_branch_command(MessageEvent(text=f"/branch {_link()}", source=discord))
     assert reply == t("gateway.branch.link_wrong_platform")
 
 
@@ -415,7 +316,6 @@ async def test_branch_link_rejects_here_and_ignores_plain_archives_titles(store)
     # --here cannot rebind this chat onto another thread's cut clone.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --here --at {_link()}", source=_thread_source(thread="1793000888.000888")))
-        MessageEvent(text=f"/branch --here {_link()}", source=_thread_source(thread="1793000888.000888")))
     assert reply == t("gateway.branch.link_here_unsupported")
     # A plain title that merely mentions archives/ (no URL) branches normally, title intact.
     reply = await runner._handle_branch_command(
@@ -444,31 +344,10 @@ async def test_branch_bare_link_without_at_is_pointed_at_the_flag(store):
 @pytest.mark.asyncio
 async def test_branch_at_flag_flows_and_fails_loudly(store):
     target = _seed_three_turns(store, _thread_source())
-    invoking = _thread_source(thread="1793000888.000888")
-    runner = _runner(store, _SlackAdapter())
-    # No --at: nothing link-shaped is interpreted, and the predictable mistake gets a
-    # pointer to the right form instead of a plain branch of this chat titled with a URL.
-    reply = await runner._handle_branch_command(
-        MessageEvent(text=f"/branch {_link()} forgot the flag", source=invoking))
-    assert reply == t("gateway.branch.link_requires_at")
-    # The original session is untouched and no clone row was created.
-    assert store.get_or_create_session(_thread_source()).session_id == target.session_id
-    assert store._db.get_session(target.session_id)["parent_session_id"] is None
-
-
-@pytest.mark.asyncio
-async def test_branch_at_flag_flows_and_fails_loudly(store):
-    target = _seed_three_turns(store, _thread_source())
     invoking = _thread_source()
     adapter = _SlackAdapter()
     runner = _runner(store, adapter)
     # The flag form carries the branch point explicitly; same-thread rule satisfied.
-async def test_branch_at_flag_flows_and_fails_loudly(store):
-    target = _seed_three_turns(store, _thread_source())
-    invoking = _thread_source(thread="1793000888.000888")
-    adapter = _SlackAdapter()
-    runner = _runner(store, adapter)
-    # The explicit form behaves exactly like the pasted-link sugar.
     reply = await runner._handle_branch_command(
         MessageEvent(text=f"/branch --at {_link()} explicit path", source=invoking))
     assert adapter.calls == [(CHANNEL, "explicit path")]
@@ -483,8 +362,3 @@ async def test_branch_at_flag_flows_and_fails_loudly(store):
             MessageEvent(text=f"/branch {args}", source=invoking))
         assert reply == t("gateway.branch.link_unparsable")
     assert store.get_or_create_session(_thread_source()).session_id == target.session_id
-        store.get_or_create_session(source).session_id)
-=======
-    reply = await runner._handle_branch_command(MessageEvent(text=f"/branch {_link()}", source=discord))
-    assert reply == t("gateway.branch.link_wrong_platform")
->>>>>>> a6760f1f5a (feat(gateway): branch a session from a linked Slack message)
